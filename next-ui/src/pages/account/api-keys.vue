@@ -27,7 +27,7 @@
 <script lang="ts" setup>
 import { commonMessages } from '@/utils/i18n/common-messages'
 import { storeToRefs } from 'pinia'
-import { useDialogsStore } from '@/stores/dialogs'
+import { type DialogResult, useDialogsStore } from '@/stores/dialogs'
 import { useMessagesStore } from '@/stores/messages'
 import { useIntl } from 'vue-intl'
 import ApikeyDeletionWarning from '@/components/apikey/DeletionWarning.vue'
@@ -42,9 +42,7 @@ const intl = useIntl()
 const display = useDisplay()
 
 // API data
-const { data: apiKeys, error, isLoading, refetch: refetchApiKeys } = useApiKeys()
-
-onMounted(() => refetchApiKeys())
+const { data: apiKeys, error, isLoading } = useApiKeys()
 
 // Dialogs handling
 // stores the API Key being actioned upon
@@ -119,9 +117,12 @@ function showDialog(action: DialogAction, apiKey?: ApiKeyDto) {
 }
 
 function handleDialogConfirmation(
+  result: DialogResult,
   hideDialog: () => void,
   setLoading: (isLoading: boolean) => void,
 ) {
+  if (result === 'cancel') return
+
   let mutation: Promise<unknown> | undefined
   let successMessage: string | undefined
 

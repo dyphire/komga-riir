@@ -1,12 +1,10 @@
 <template>
   <v-data-table
     v-model="selectedBookIds"
-    v-model:items-per-page="itemsPerPage"
     :loading="importing || loading"
     :items="importBooks"
     item-value="transientBook.id"
     :headers="headers"
-    :items-per-page-options="itemsPerPageOptions"
     :hide-default-footer="hideFooter"
     fixed-header
     fixed-footer
@@ -14,7 +12,6 @@
     item-selectable="selectable"
     select-strategy="page"
     mobile-breakpoint="md"
-    @update:current-items="onDisplayedItems"
   >
     <template #no-data>
       <v-empty-state
@@ -53,7 +50,7 @@
           item.transientBook.status === MediaStatus.Error ||
           item.transientBook.status === MediaStatus.Unsupported
         "
-        v-tooltip="convertErrorCodes(item.transientBook.comment)"
+        v-ktooltip="convertErrorCodes(item.transientBook.comment)"
         icon="i-mdi:alert-circle"
         color="error"
       />
@@ -61,6 +58,14 @@
         v-if="item.transientBook.status === MediaStatus.Ready"
         icon="i-mdi:check-circle"
         color="success"
+      />
+      <ImportBooksTransientBookWatcher
+        :book-import="item"
+        @update:transient-book="(book) => (item.transientBook = book)"
+        @update:series="(series) => (item.series = series)"
+        @update:series-books="(seriesBooks) => (item.seriesBooks = seriesBooks)"
+        @update:upgrade-book="(book) => (item.upgradeBook = book)"
+        @update:upgrade-book-pages="(pages) => (item.upgradeBookPages = pages)"
       />
     </template>
 
@@ -83,17 +88,41 @@
           :class="item.imported ? 'text-disabled' : undefined"
           >{{ item.series?.metadata.title }}</span
         >
-        <template v-else>
-          <div
-            style="height: 2em"
-            :class="isSelected(internalItem) ? 'missing' : ''"
-          />
-        </template>
+        <v-btn
+          v-else
+          :text="
+            $formatMessage({
+              description: 'Import books table: series cell: select series button',
+              defaultMessage: 'Select series',
+              id: '464rk3',
+            })
+          "
+          :disabled="!item.selectable"
+          :color="isSelected(internalItem) ? 'error' : ''"
+          size="small"
+        />
       </div>
     </template>
 
     <template #[`item.upgradeBook`]="{ item }">
+      <div v-if="item.series?.oneshot">
+        <v-chip
+          :text="
+            $formatMessage({
+              description: 'Import books table: book cell: one shot indicator',
+              defaultMessage: 'One shot',
+              id: 'nOcpr8',
+            })
+          "
+          rounded
+          :disabled="!item.upgradable"
+          color="primary"
+          variant="tonal"
+          class="text-wrap"
+        />
+      </div>
       <div
+        v-else
         @mouseenter="
           item.upgradable
             ? (dialogBookPickerActivator = $event.currentTarget as Element)
@@ -101,16 +130,24 @@
         "
         @click="item.upgradable ? (currentActionedItems = [item]) : undefined"
       >
-        <v-chip
-          v-if="item.upgradeBook"
-          variant="text"
-          closable
-          class="cursor-pointer"
-          :disabled="!item.upgradable"
-          @click:close="unassignBook(item)"
-        >
-          {{ item.upgradeBook.metadata.number }} - {{ item.upgradeBook.metadata.title }}
-        </v-chip>
+        <div v-if="item.upgradeBook">
+          <v-chip
+            v-ktooltip:bottom="
+              `${item.upgradeBook.metadata.number} - ${item.upgradeBook.metadata.title}`
+            "
+            variant="text"
+            closable
+            class="cursor-pointer"
+            :disabled="!item.upgradable"
+            @click:close="unassignBook(item)"
+          >
+            <span
+              class="text-truncate"
+              style="max-width: 120px"
+              >{{ item.upgradeBook.metadata.number }} - {{ item.upgradeBook.metadata.title }}</span
+            >
+          </v-chip>
+        </div>
         <v-btn
           v-else
           color=""
@@ -126,6 +163,43 @@
           "
         />
       </div>
+    </template>
+
+    <template #[`header.details`]>
+      <v-icon icon="i-mdi:file-document-outline" />
+    </template>
+
+    <template #[`item.details`]="{ item }">
+      <v-icon-btn
+        v-if="item.upgradeBook"
+        v-ktooltip:bottom="
+          $formatMessage({
+            description: 'Import books table: book compare button',
+            defaultMessage: 'Compare',
+            id: 'pvD6TS',
+          })
+        "
+        :disabled="item.imported"
+        icon="i-mdi:file-compare"
+        variant="elevated"
+        @mouseenter="compareBookActivator = $event.currentTarget as Element"
+        @click="compareBooks(item)"
+      />
+      <v-icon-btn
+        v-else
+        v-ktooltip:bottom="
+          $formatMessage({
+            description: 'Import books table: book details button',
+            defaultMessage: 'Show details',
+            id: '2LLpzV',
+          })
+        "
+        :disabled="item.imported"
+        icon="i-mdi:file-document-outline"
+        variant="elevated"
+        @mouseenter="bookDetailsActivator = $event.currentTarget as Element"
+        @click="bookDetails(item)"
+      />
     </template>
 
     <template #[`item.destinationName`]="{ item }">
@@ -153,20 +227,20 @@
     <template #[`item.statusMessage`]="{ item, value, internalItem, isSelected }">
       <v-icon
         v-if="item.imported"
-        v-tooltip="value"
+        v-ktooltip="$formatMessage(value)"
         icon="i-mdi:import"
         color="info"
       />
       <template v-else-if="isSelected(internalItem)">
         <v-icon
           v-if="item.upgradeBook"
-          v-tooltip="value"
+          v-ktooltip="$formatMessage(value)"
           icon="i-mdi:file-replace"
           color="warning"
         />
         <v-icon
           v-else-if="value"
-          v-tooltip="value"
+          v-ktooltip="$formatMessage(value)"
           icon="i-mdi:alert-circle"
           color="error"
         />
@@ -253,15 +327,11 @@
 <script setup lang="ts">
 import { useIntl } from 'vue-intl'
 import { useErrorCodeFormatter } from '@/composables/errorCodeFormatter'
-import { syncRefs, useArrayFilter, useArrayMap } from '@vueuse/core'
+import { useArrayFilter } from '@vueuse/core'
 import { useDisplay } from 'vuetify'
-import { useMutation, useQuery } from '@pinia/colada'
-import { seriesDetailQuery } from '@/colada/series'
-import { bookListQuery } from '@/colada/books'
-import { transientBookAnalyze } from '@/colada/transient-books'
+import { useMutation } from '@pinia/colada'
 import { commonMessages } from '@/utils/i18n/common-messages'
 import { useMessagesStore } from '@/stores/messages'
-import { PageRequest } from '@/types/PageRequest'
 import {
   type BookDto,
   type BookImportBatchDto,
@@ -270,81 +340,9 @@ import {
   type TransientBookDto,
 } from '@/generated/openapi'
 import { MediaStatus } from '@/types/MediaStatus'
-
-class BookImport {
-  transientBook: TransientBookDto
-  destinationName: string
-  originalName: string
-  series?: SeriesDto
-  seriesBooks?: BookDto[]
-  upgradeBook?: BookDto
-  imported: boolean
-
-  constructor(transientBook: TransientBookDto) {
-    this.transientBook = transientBook
-    this.originalName = transientBook.name
-    this.destinationName = transientBook.name
-    this.imported = false
-  }
-
-  /**
-   * Whether the book is selectable.
-   * Only books in READY status and not yet imported can be selected
-   */
-  public get selectable(): boolean {
-    return this.transientBook.status === MediaStatus.Ready && !this.imported
-  }
-
-  public get upgradable(): boolean {
-    return this.selectable && !!this.series && !!this.seriesBooks
-  }
-
-  public get importable(): boolean {
-    return this.selectable && !!this.series
-  }
-
-  public get statusMessage(): string {
-    switch (this.transientBook.status) {
-      case MediaStatus.Unknown:
-        return intl.formatMessage({
-          description: 'Import books: status message: book needs to be analyzed first',
-          defaultMessage: 'Book needs to be analyzed first',
-          id: 'CPMLrI',
-        })
-      case MediaStatus.Unsupported:
-        return intl.formatMessage({
-          description: 'Import books: status message: book format is not supported',
-          defaultMessage: 'Book format is not supported',
-          id: 'g2UW+6',
-        })
-      case MediaStatus.Error:
-        return intl.formatMessage({
-          description: 'Import books: status message: book could not be analyzed',
-          defaultMessage: 'Book could not be analyzed',
-          id: '8jE3eP',
-        })
-    }
-    if (!this.series)
-      return intl.formatMessage({
-        description: 'Import books: status message: choose a series',
-        defaultMessage: 'Choose a series',
-        id: 'cM9FuW',
-      })
-    if (this.imported)
-      return intl.formatMessage({
-        description: 'Import books: status message: import requested',
-        defaultMessage: 'Import requested',
-        id: 'YHxouG',
-      })
-    if (this.upgradeBook)
-      return intl.formatMessage({
-        description: 'Import books: status message: book will be upgraded',
-        defaultMessage: 'Book will be upgraded',
-        id: 'UoaxO7',
-      })
-    return ''
-  }
-}
+import { useCompareBookDialog } from '@/composables/book/useCompareBookDialog'
+import { BookImport } from '@/types/BookImport'
+import { useBookDetailsDialog } from '@/composables/book/useBookDetailsDialog'
 
 const messagesStore = useMessagesStore()
 const display = useDisplay()
@@ -356,15 +354,23 @@ const { books = [], loading = false } = defineProps<{
   loading?: boolean
 }>()
 
-// a read-only array of BookImport, kept in sync with the books prop
-const importBooksRO = useArrayMap(
-  toRef(() => books),
-  (it) => new BookImport(it),
-)
 // read-write array of BookImport, will be modified by the different actions
 const importBooks = ref<BookImport[]>([])
-// 1-way sync from importBooksRO to importBooks
-syncRefs(importBooksRO, importBooks)
+
+watch(
+  () => books,
+  (newBooks) => {
+    if (newBooks) {
+      importBooks.value = newBooks.map((it) => new BookImport(it))
+    } else {
+      importBooks.value = []
+    }
+  },
+  {
+    immediate: true,
+    deep: true,
+  },
+)
 
 // the current items being acted upon, used for dialog callback
 const currentActionedItems = ref<BookImport[]>()
@@ -392,22 +398,7 @@ const importBatch = computed(
     }) as BookImportBatchDto,
 )
 
-// only analyze books that are shown
-function onDisplayedItems(items: { key: string }[]) {
-  importBooks.value
-    .filter((b) => items.map((it) => it.key).includes(b.transientBook.id))
-    .forEach((b) => {
-      if (b.transientBook.status === MediaStatus.Unknown) {
-        analyzeBook(b)
-      }
-    })
-}
-
 //region Table setup
-const itemsPerPage = ref<number>(display.smAndDown.value ? 1 : 10)
-const itemsPerPageOptions = computed(() =>
-  display.smAndDown.value ? [1, 5, 10, 20] : [10, 25, 50],
-)
 const hideFooter = computed(() => importBooks.value.length < (display.smAndDown.value ? 1 : 10))
 
 const headers = [
@@ -443,6 +434,15 @@ const headers = [
       id: 'Kie8HQ',
     }),
     key: 'upgradeBook',
+  },
+  {
+    title: intl.formatMessage({
+      description: 'Import books table header: details',
+      defaultMessage: 'Details',
+      id: 'EbhcQd',
+    }),
+    key: 'details',
+    align: 'center',
   },
   {
     title: intl.formatMessage({
@@ -492,7 +492,7 @@ const dialogSeriesIncludeOneShots = ref<boolean>(true)
 
 function seriesPicked(series: SeriesDto) {
   if (currentActionedItems.value) {
-    currentActionedItems.value.forEach((it) => assignSeries(it, series))
+    currentActionedItems.value.forEach((it) => (it.series = series))
   }
 }
 
@@ -512,7 +512,7 @@ const dialogBookPickerActivator = ref<Element | undefined>(undefined)
 
 function bookPicked(book: BookDto) {
   if (currentActionedItems.value) {
-    currentActionedItems.value.forEach((it) => assignBookNumber(it, book.metadata.numberSort))
+    currentActionedItems.value.forEach((it) => (it.upgradeBook = book))
   }
 }
 //endregion
@@ -527,69 +527,27 @@ function fileNamePicked(name: string) {
 }
 //endregion
 
-function analyzeBook(book: BookImport) {
-  void useQuery(() =>
-    transientBookAnalyze({
-      transientBookId: book.transientBook.id,
-    }),
-  )
-    .refresh()
-    .then(({ data }) => {
-      if (data) {
-        book.transientBook = data
-        if (book.transientBook.seriesId && book.transientBook.seriesId !== book.series?.id)
-          fetchSeries(book)
-      }
-    })
-}
-
-function fetchSeries(book: BookImport) {
-  void useQuery(() =>
-    seriesDetailQuery({
-      seriesId: book.transientBook.seriesId!,
-    }),
-  )
-    .refresh()
-    .then(({ data }) => {
-      if (data) assignSeries(book, data)
-    })
-}
-
-function fetchBooks(book: BookImport) {
-  void useQuery(() =>
-    bookListQuery({
-      search: {
-        condition: {
-          seriesId: { operator: 'Is', value: book.series!.id },
-        },
-      },
-      pageRequest: PageRequest.Unpaged(),
-    }),
-  )
-    .refresh()
-    .then(({ data }) => {
-      if (data) {
-        book.seriesBooks = data.content
-        if (book.series?.oneshot) book.upgradeBook = data.content?.at(0)
-        else if (book.transientBook.number) assignBookNumber(book, book.transientBook.number)
-      }
-    })
-}
-
-function assignSeries(book: BookImport, series: SeriesDto) {
-  book.series = series
-  fetchBooks(book)
-  // auto-select importable books
-  if (book.importable && !selectedBookIds.value.includes(book.transientBook.id))
-    selectedBookIds.value.push(book.transientBook.id)
-}
-
-function assignBookNumber(book: BookImport, number: number) {
-  book.upgradeBook = book.seriesBooks?.find((b) => b.metadata.numberSort === number)
-}
+// auto-select importable books
+watch(
+  importBooks,
+  (val) => {
+    if (val) {
+      val.forEach((it) => {
+        if (it.importable && !selectedBookIds.value.includes(it.transientBook.id)) {
+          selectedBookIds.value.push(it.transientBook.id)
+        }
+      })
+    }
+  },
+  {
+    immediate: true,
+    deep: true,
+  },
+)
 
 function unassignBook(book: BookImport) {
   book.upgradeBook = undefined
+  book.upgradeBookPages = []
 }
 
 const { mutateAsync: postImportBooks, isLoading: importing } = useMutation({
@@ -610,10 +568,21 @@ function doImportBooks() {
       messagesStore.messages.push(error?.cause?.message ?? commonMessages.networkError)
     })
 }
+
+const { prepareDialog: prepareBookDetailsDialog, activator: bookDetailsActivator } =
+  useBookDetailsDialog()
+
+function bookDetails(item: BookImport) {
+  prepareBookDetailsDialog(item.transientBookDetails)
+}
+
+const { prepareDialog: prepareCompareBookDialog, activator: compareBookActivator } =
+  useCompareBookDialog()
+
+function compareBooks(item: BookImport) {
+  if (item.upgradeBookDetails)
+    prepareCompareBookDialog(item.transientBookDetails, item.upgradeBookDetails, true)
+}
 </script>
 
-<style scoped>
-.missing {
-  border: 2px dashed red;
-}
-</style>
+<style scoped></style>

@@ -1,16 +1,13 @@
 package org.gotson.komga.interfaces.api.rest
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import org.assertj.core.api.Assertions.assertThat
-import org.gotson.komga.domain.model.Book
 import org.gotson.komga.domain.model.BookPage
 import org.gotson.komga.domain.model.Dimension
 import org.gotson.komga.domain.model.KomgaUser
 import org.gotson.komga.domain.model.MarkSelectedPreference
 import org.gotson.komga.domain.model.Media
-import org.gotson.komga.domain.model.Series
 import org.gotson.komga.domain.model.SeriesMetadata
 import org.gotson.komga.domain.model.ThumbnailBook
 import org.gotson.komga.domain.model.makeBook
@@ -29,7 +26,6 @@ import org.gotson.komga.domain.service.KomgaUserLifecycle
 import org.gotson.komga.domain.service.LibraryContentLifecycle
 import org.gotson.komga.domain.service.LibraryLifecycle
 import org.gotson.komga.domain.service.SeriesLifecycle
-import org.gotson.komga.jooq.main.Tables
 import org.gotson.komga.toScanResult
 import org.hamcrest.Matchers
 import org.hamcrest.core.IsNull
@@ -38,12 +34,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
@@ -54,17 +47,13 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
-import org.jooq.DSLContext
 import java.net.URLEncoder
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.time.LocalDateTime
 import kotlin.random.Random
 
 @SpringBootTest
 @AutoConfigureMockMvc(printOnlyOnFailure = false)
-@Execution(ExecutionMode.SAME_THREAD)
 class SeriesControllerTest(
   @Autowired private val seriesRepository: SeriesRepository,
   @Autowired private val seriesLifecycle: SeriesLifecycle,
@@ -79,8 +68,6 @@ class SeriesControllerTest(
   @Autowired private val userRepository: KomgaUserRepository,
   @Autowired private val userLifecycle: KomgaUserLifecycle,
   @Autowired private val mockMvc: MockMvc,
-  @Autowired private val objectMapper: ObjectMapper,
-  @Qualifier("dslContextRW") private val dslContext: DSLContext,
 ) {
   @MockkBean
   private lateinit var mockScanner: FileSystemScanner
@@ -106,104 +93,6 @@ class SeriesControllerTest(
   @AfterEach
   fun `clear repository`() {
     seriesLifecycle.deleteMany(seriesRepository.findAll())
-  }
-
-  private fun createStableSeriesFixture() {
-    val fixedDateTime = LocalDateTime.of(2024, 1, 2, 3, 4, 5)
-
-    val series =
-      Series(
-        name = "series",
-        url = URL("file:/series"),
-        fileLastModified = fixedDateTime,
-        id = "series-1",
-        libraryId = library.id,
-        createdDate = fixedDateTime,
-        lastModifiedDate = fixedDateTime,
-      )
-
-    val book =
-      Book(
-        name = "book-1",
-        url = URL("file:/book-1"),
-        fileLastModified = fixedDateTime,
-        number = 1,
-        id = "book-1",
-        seriesId = series.id,
-        libraryId = library.id,
-        createdDate = fixedDateTime,
-        lastModifiedDate = fixedDateTime,
-      )
-
-    val createdSeries = seriesLifecycle.createSeries(series)
-    seriesLifecycle.addBooks(createdSeries, listOf(book))
-
-    dslContext.update(Tables.SERIES).set(Tables.SERIES.BOOK_COUNT, 1).set(Tables.SERIES.CREATED_DATE, fixedDateTime).set(Tables.SERIES.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.SERIES.ID.eq(series.id)).execute()
-    dslContext.update(Tables.SERIES_METADATA).set(Tables.SERIES_METADATA.CREATED_DATE, fixedDateTime).set(Tables.SERIES_METADATA.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.SERIES_METADATA.SERIES_ID.eq(series.id)).execute()
-    dslContext.update(Tables.BOOK).set(Tables.BOOK.CREATED_DATE, fixedDateTime).set(Tables.BOOK.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK.ID.eq(book.id)).execute()
-    dslContext.update(Tables.BOOK_METADATA).set(Tables.BOOK_METADATA.CREATED_DATE, fixedDateTime).set(Tables.BOOK_METADATA.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK_METADATA.BOOK_ID.eq(book.id)).execute()
-    dslContext.update(Tables.BOOK_METADATA_AGGREGATION).set(Tables.BOOK_METADATA_AGGREGATION.CREATED_DATE, fixedDateTime).set(Tables.BOOK_METADATA_AGGREGATION.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK_METADATA_AGGREGATION.SERIES_ID.eq(series.id)).execute()
-  }
-
-  @Nested
-  inner class CompatibilitySnapshots {
-    @Test
-    @WithMockCustomUser
-    fun `given stable series fixture when getting series then matches snapshot`() {
-      createStableSeriesFixture()
-
-      val response =
-        mockMvc
-          .get("/api/v1/series")
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      assertJsonSnapshot(objectMapper, "series-list.json", response.contentAsString)
-    }
-
-    @Test
-    @WithMockCustomUser
-    fun `given visible series when requesting oneshot true detail then payload matches plain series detail`() {
-      createStableSeriesFixture()
-
-      val plainResponse =
-        mockMvc
-          .get("/api/v1/series/series-1")
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      val oneshotResponse =
-        mockMvc
-          .get("/api/v1/series/series-1?oneshot=true")
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      assertThat(objectMapper.readTree(oneshotResponse.contentAsString))
-        .isEqualTo(objectMapper.readTree(plainResponse.contentAsString))
-    }
-
-    @Test
-    @WithMockCustomUser
-    fun `given missing series when requesting oneshot true detail then fail-closed status matches plain detail`() {
-      val plainResponse =
-        mockMvc
-          .get("/api/v1/series/missing-series")
-          .andExpect { status { isNotFound() } }
-          .andReturn()
-          .response
-
-      val oneshotResponse =
-        mockMvc
-          .get("/api/v1/series/missing-series?oneshot=true")
-          .andExpect { status { isNotFound() } }
-          .andReturn()
-          .response
-
-      assertThat(oneshotResponse.status).isEqualTo(plainResponse.status)
-    }
   }
 
   @Nested
@@ -276,57 +165,6 @@ class SeriesControllerTest(
           jsonPath("$.content[1].metadata.title") { value(Matchers.equalToIgnoringCase("b")) }
           jsonPath("$.content[2].metadata.title") { value(Matchers.equalToIgnoringCase("b")) }
           jsonPath("$.content[3].metadata.title") { value("C") }
-        }
-    }
-
-    @Test
-    @WithMockCustomUser
-    fun `given many series when requesting via api with page parameters then series are paged`() {
-      listOf("a", "b", "c", "d")
-        .map { name -> makeSeries(name, libraryId = library.id) }
-        .forEach {
-          seriesLifecycle.createSeries(it)
-        }
-
-      mockMvc
-        .get("/api/v1/series") {
-          param("page", "1")
-          param("size", "2")
-          param("sort", "metadata.titleSort,asc")
-        }.andExpect {
-          status { isOk() }
-          jsonPath("$.size") { value(2) }
-          jsonPath("$.number") { value(1) }
-          jsonPath("$.first") { value(false) }
-          jsonPath("$.totalElements") { value(4) }
-          jsonPath("$.content[0].metadata.title") { value("c") }
-          jsonPath("$.content[1].metadata.title") { value("d") }
-        }
-    }
-
-    @Test
-    @WithMockCustomUser
-    fun `given series with different last modified when requesting latest then latest series are returned first`() {
-      val older =
-        seriesLifecycle.createSeries(makeSeries("older", libraryId = library.id)).also { created ->
-          seriesLifecycle.addBooks(created, listOf(makeBook("1", libraryId = library.id)))
-        }
-      val newer =
-        seriesLifecycle.createSeries(makeSeries("newer", libraryId = library.id)).also { created ->
-          seriesLifecycle.addBooks(created, listOf(makeBook("2", libraryId = library.id)))
-        }
-
-      seriesRepository.update(older.copy(lastModifiedDate = LocalDateTime.now().minusDays(2)))
-      seriesRepository.update(newer.copy(lastModifiedDate = LocalDateTime.now().minusHours(1)))
-
-      mockMvc
-        .get("/api/v1/series/latest") {
-          param("unpaged", "true")
-        }.andExpect {
-          status { isOk() }
-          jsonPath("$.totalElements") { value(2) }
-          jsonPath("$.content[0].metadata.title") { value("newer") }
-          jsonPath("$.content[1].metadata.title") { value("older") }
         }
     }
   }

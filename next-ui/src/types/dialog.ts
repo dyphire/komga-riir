@@ -12,6 +12,14 @@ type DialogBaseProps = {
    */
   maxWidth?: string | number
   /**
+   * Minimum height of the dialog.
+   */
+  minHeight?: string | number
+  /**
+   * Maximum height of the dialog.
+   */
+  maxHeight?: string | number
+  /**
    * Activator for the dialog.
    */
   activator?: Element | string
@@ -27,6 +35,10 @@ type DialogBaseProps = {
    * Whether the dialog is scrollable.
    */
   scrollable?: boolean
+  /**
+   * Props to bind to the v-card-text
+   */
+  cardTextProps?: object
   /**
    * Controls the dialog's visibility.
    */
@@ -69,9 +81,4 @@ export type DialogConfirmProps = DialogConfirmBaseProps & {
   color?: string
 }
 
-export type DialogConfirmEditProps = DialogConfirmBaseProps & {
-  /**
-   * CSS classes applied to the card.
-   */
-  cardTextClass?: string
-}
+export type DialogConfirmEditProps = DialogConfirmBaseProps

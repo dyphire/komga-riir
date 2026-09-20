@@ -26,6 +26,7 @@ import {
   type UserCreationDto,
   type UserDto,
 } from '@/generated/openapi'
+import { MINUTE, STALE_TIME } from '@/types/time'
 
 export const QUERY_KEYS_USERS = {
   root: ['users'] as const,
@@ -37,24 +38,26 @@ export const useUsers = defineQuery(() =>
   useQuery({
     key: () => QUERY_KEYS_USERS.root,
     query: () => komgaGetUsers(),
+    staleTime: STALE_TIME.LONG,
   }),
 )
 
-export const useCurrentUser = defineQuery(() => {
-  const { data, error, ...rest } = useQuery({
-    key: QUERY_KEYS_USERS.currentUser,
-    query: () => komgaGetCurrentUser(),
-    // 10 minutes
-    staleTime: 10 * 60 * 1000,
-    gcTime: false,
-    autoRefetch: true,
-    meta: {
-      no401handling: true,
-    },
-  })
+export const currentUserQuery = defineQueryOptions({
+  key: QUERY_KEYS_USERS.currentUser(),
+  query: () => komgaGetCurrentUser(),
+  staleTime: 10 * MINUTE,
+  gcTime: false,
+  autoRefetch: true,
+  meta: {
+    no401handling: true,
+  },
+})
+
+export const useCurrentUser = () => {
+  const { data, error, ...rest } = useQuery(currentUserQuery)
 
   const isAuthenticated = computed(() => !!data.value && !error.value)
-  const hasRole = (role: UserRole) => data.value?.roles.includes(role)
+  const hasRole = (role: UserRole) => data.value?.roles.includes(role) ?? false
   const isAdmin = computed(() => hasRole('ADMIN'))
 
   return {
@@ -65,7 +68,7 @@ export const useCurrentUser = defineQuery(() => {
     isAdmin,
     isAuthenticated,
   }
-})
+}
 
 export const useLogin = defineMutation(() => {
   const queryCache = useQueryCache()

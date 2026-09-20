@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.HttpHeaders
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
@@ -20,8 +19,6 @@ class ApiKeyTest(
   @Autowired private val userRepository: KomgaUserRepository,
   @Autowired private val komgaUserLifecycle: KomgaUserLifecycle,
 ) {
-  private val sessionCookieName = "KOMGA-SESSION"
-
   private val user1 =
     KomgaUser(
       "user@example.org",
@@ -60,33 +57,12 @@ class ApiKeyTest(
   }
 
   @Test
-  fun `given valid api key in X-API-Key header when getting user information then returns OK and issues session cookie`() {
-    mockMvc
-      .get("/api/v2/users/me") {
-        header("X-API-Key", apiKey)
-      }.andExpect {
-        status { isOk() }
-        header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("$sessionCookieName=")) }
-        cookie {
-          exists(sessionCookieName)
-          httpOnly(sessionCookieName, true)
-        }
-        jsonPath("email") { value(user1.email) }
-      }
-  }
-
-  @Test
-  fun `given valid api key in x-api-key header when getting user information then returns OK and issues session cookie`() {
+  fun `given api key in X-API-Key header when getting user information then returns OK`() {
     mockMvc
       .get("/api/v2/users/me") {
         header("x-api-key", apiKey)
       }.andExpect {
         status { isOk() }
-        header { string(HttpHeaders.SET_COOKIE, org.hamcrest.Matchers.containsString("$sessionCookieName=")) }
-        cookie {
-          exists(sessionCookieName)
-          httpOnly(sessionCookieName, true)
-        }
         jsonPath("email") { value(user1.email) }
       }
   }

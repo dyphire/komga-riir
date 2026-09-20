@@ -3,7 +3,11 @@ import mockThumbnailUrl from '@/assets/mock-thumbnail.jpg'
 import mockThumbnailLandscapeUrl from '@/assets/mock-thumbnail-landscape.jpg'
 import { PageRequest } from '@/types/PageRequest'
 import { mockPage } from '@/mocks/api/pageable'
-import { handleGetSeries, handleGetSeriesById } from '@/generated/openapi/msw.gen'
+import {
+  handleGetSeries,
+  handleGetSeriesById,
+  handleGetSeriesThumbnails,
+} from '@/generated/openapi/msw.gen'
 import { response200OK, response404NotFound } from '@/mocks/api/utils'
 
 export const mockSeries1 = {
@@ -122,7 +126,64 @@ const series2 = {
   oneshot: false,
 }
 
-const series = [mockSeries1, series2]
+const series3 = {
+  id: '634',
+  libraryId: '2',
+  name: 'One shot adventures',
+  url: '/books/One Shot Adventures',
+  created: new Date('2020-07-05T12:11:50Z'),
+  lastModified: new Date('2020-07-05T12:11:50Z'),
+  fileLastModified: new Date('2020-03-05T11:57:31Z'),
+  booksCount: 1,
+  booksReadCount: 0,
+  booksUnreadCount: 1,
+  booksInProgressCount: 0,
+  metadata: {
+    status: 'ENDED',
+    statusLock: false,
+    title: 'One shot adventures',
+    titleLock: false,
+    titleSort: 'One shot adventures',
+    titleSortLock: false,
+    summary:
+      'Supersophisticated androids that can pass for human? Robots that turn on their creators to take control of their world? Strange alien armies secretly infiltrating the earth? Men rocketing through the galaxy as easily as taking an average Sunday drive in the country? Come on, that stuff is just a bunch of science fiction, right?\n\nYou bet it is! Published every two months, Charlton Comics presented a new collection of short stories about mankind’s long-dreamed-of exploration of the rest of the solar system…and beyond!\n\nThis series is notable for its many stories by Steve Ditko (creator of The Amazing Spider-Man), and for the first appearance of Captain Atom.',
+    summaryLock: true,
+    readingDirection: 'LEFT_TO_RIGHT',
+    readingDirectionLock: true,
+    publisher: 'Charlton',
+    publisherLock: true,
+    ageRatingLock: false,
+    language: 'en',
+    languageLock: true,
+    genres: ['science fiction'],
+    genresLock: true,
+    tags: [],
+    tagsLock: false,
+    totalBookCount: 70,
+    totalBookCountLock: true,
+    sharingLabels: [],
+    sharingLabelsLock: false,
+    links: [],
+    linksLock: false,
+    alternateTitles: [],
+    alternateTitlesLock: false,
+    created: new Date('2020-07-05T12:11:50Z'),
+    lastModified: new Date('2023-07-22T11:14:45Z'),
+  },
+  booksMetadata: {
+    authors: [],
+    tags: [],
+    releaseDate: '2018-07-10',
+    summary: '',
+    summaryNumber: '',
+    created: new Date('2021-01-11T09:59:23Z'),
+    lastModified: new Date('2025-04-08T02:55:19Z'),
+  },
+  deleted: false,
+  oneshot: true,
+}
+
+const series = [mockSeries1, series2, series3]
 
 export const seriesHandlers = [
   handleGetSeries(async ({ request }) => {
@@ -142,11 +203,37 @@ export const seriesHandlers = [
   }),
   handleGetSeriesById(({ params }) => {
     if (params.seriesId === '404') return response404NotFound()
+    const found = series.find((it) => it.id === params.seriesId)
+    if (found) return response200OK(found)
     return response200OK(
       Object.assign({}, mockSeries1, { metadata: { title: `Series ${params.seriesId}` } }),
     )
   }),
-  http.get('*/api/v1/series/:seriesId/thumbnail', async ({ params }) => {
+  handleGetSeriesThumbnails(({ params }) =>
+    response200OK([
+      {
+        seriesId: params.seriesId,
+        fileSize: 1524,
+        height: 1300,
+        width: 1250,
+        mediaType: 'image/avif',
+        id: '1',
+        selected: true,
+        type: 'USER_UPLOADED',
+      },
+      {
+        seriesId: params.seriesId,
+        fileSize: 1524,
+        height: 300,
+        width: 250,
+        mediaType: 'image/jpeg',
+        id: '2',
+        selected: false,
+        type: 'GENERATED',
+      },
+    ]),
+  ),
+  http.get('*/api/v1/series/:seriesId/thumbnail*', async ({ params }) => {
     const seriesId = params.seriesId as string
 
     // use landscape image for some images

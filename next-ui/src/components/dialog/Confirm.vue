@@ -3,6 +3,8 @@
     v-model="showDialog"
     :activator="activator"
     :max-width="maxWidth"
+    :max-height="fullscreen ? undefined : maxHeight"
+    :min-height="fullscreen ? undefined : minHeight"
     :fullscreen="fullscreen"
     :transition="fullscreen ? 'dialog-bottom-transition' : undefined"
     :aria-label="title"
@@ -20,7 +22,7 @@
           :subtitle="subtitle"
           :loading="loading"
         >
-          <template #text>
+          <v-card-text v-bind="cardTextProps">
             <slot name="warning" />
             <slot name="text">
               <FormattedMessage
@@ -46,7 +48,7 @@
 
             <v-text-field
               v-if="mode === 'textinput'"
-              :rules="[['sameAsIgnoreCase', validateTextEffective]]"
+              :rules="[['sameAsIgnoreCase', validateTextEffective]] satisfies CustomRuleTuple[]"
               hide-details
               class="mt-2"
               autofocus
@@ -65,7 +67,7 @@
                 })
               "
             />
-          </template>
+          </v-card-text>
 
           <template #actions>
             <v-spacer />
@@ -77,7 +79,12 @@
                   id: 'pENCUD',
                 })
               "
-              @click="isActive.value = false"
+              @click="
+                () => {
+                  emit('cancel')
+                  isActive.value = false
+                }
+              "
             />
             <v-btn
               :loading="loading"
@@ -105,7 +112,8 @@
 <script setup lang="ts">
 import { defineMessage, useIntl } from 'vue-intl'
 import type { DialogConfirmProps } from '@/types/dialog'
-import { useRules } from 'vuetify/labs/rules'
+import { useRules } from 'vuetify'
+import type { CustomRuleTuple } from '@/plugins/vuetify'
 
 const intl = useIntl()
 const rules = useRules()
@@ -113,6 +121,7 @@ const rules = useRules()
 const showDialog = defineModel<boolean>('dialog', { required: false })
 const emit = defineEmits<{
   confirm: []
+  cancel: []
 }>()
 
 const form = ref()
@@ -147,9 +156,12 @@ const {
   mode = 'click',
   color = undefined,
   maxWidth = undefined,
+  maxHeight = undefined,
+  minHeight = undefined,
   activator = undefined,
   loading = false,
   closeOnSave = true,
   fullscreen = undefined,
+  cardTextProps = undefined,
 } = defineProps<DialogConfirmProps>()
 </script>

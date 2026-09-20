@@ -93,7 +93,7 @@
                         />
                         <v-icon
                           v-else
-                          v-tooltip:bottom="
+                          v-ktooltip:bottom="
                             $formatMessage({
                               description: 'Generate API key dialog: copy button tooltip',
                               defaultMessage: 'Copy to clipboard',
@@ -149,7 +149,7 @@ import { commonMessages } from '@/utils/i18n/common-messages'
 import { useMessagesStore } from '@/stores/messages'
 
 import { useClipboard } from '@vueuse/core'
-import { useRules } from 'vuetify/labs/rules'
+import { useRules } from 'vuetify'
 import type { ApiKeyDto } from '@/generated/openapi'
 
 const intl = useIntl()

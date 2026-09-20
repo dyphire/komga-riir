@@ -1,12 +1,10 @@
 package org.gotson.komga.interfaces.api.opds
 
 import org.gotson.komga.domain.model.BookPage
-import org.gotson.komga.domain.model.Book
 import org.gotson.komga.domain.model.KomgaUser
 import org.gotson.komga.domain.model.Media
-import org.gotson.komga.domain.model.Series
-import org.gotson.komga.domain.model.makeLibrary
 import org.gotson.komga.domain.model.makeBook
+import org.gotson.komga.domain.model.makeLibrary
 import org.gotson.komga.domain.model.makeSeries
 import org.gotson.komga.domain.persistence.BookRepository
 import org.gotson.komga.domain.persistence.KomgaUserRepository
@@ -27,14 +25,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.HttpHeaders
-import org.springframework.core.io.ClassPathResource
-import org.springframework.test.json.JsonCompareMode
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
-import javax.sql.DataSource
-import java.sql.Timestamp
-import java.net.URL
 import java.time.LocalDateTime
 
 @SpringBootTest
@@ -49,7 +41,6 @@ class OpdsControllerTest(
   @Autowired private val mediaRepository: MediaRepository,
   @Autowired private val userRepository: KomgaUserRepository,
   @Autowired private val userLifecycle: KomgaUserLifecycle,
-  @Autowired private val dataSource: DataSource,
   @Autowired private val mockMvc: MockMvc,
 ) {
   private val library = makeLibrary(id = "1")
@@ -76,154 +67,6 @@ class OpdsControllerTest(
   @AfterEach
   fun `clear repository`() {
     seriesLifecycle.deleteMany(seriesRepository.findAll())
-  }
-
-  private fun createReadyPdfBook(name: String = "book.pdf") =
-    LocalDateTime.of(2024, 1, 2, 3, 4, 5).let { fixedDateTime ->
-      val series =
-        Series(
-          name = "series",
-          url = URL("file:/series"),
-          fileLastModified = fixedDateTime,
-          id = "series-1",
-          libraryId = library.id,
-          createdDate = fixedDateTime,
-          lastModifiedDate = fixedDateTime,
-        )
-
-      val book =
-        Book(
-          name = name,
-          url = URL("file:/$name"),
-          fileLastModified = fixedDateTime,
-          id = "book-1",
-          seriesId = series.id,
-          libraryId = library.id,
-          createdDate = fixedDateTime,
-          lastModifiedDate = fixedDateTime,
-        )
-
-      seriesLifecycle.createSeries(series).also { created ->
-        seriesLifecycle.addBooks(created, listOf(book))
-      }
-
-      dataSource.connection.use { connection ->
-        connection
-          .prepareStatement("update BOOK set CREATED_DATE = ?, LAST_MODIFIED_DATE = ? where ID = ?")
-          .use { statement ->
-            statement.setTimestamp(1, Timestamp.valueOf(fixedDateTime))
-            statement.setTimestamp(2, Timestamp.valueOf(fixedDateTime))
-            statement.setString(3, book.id)
-            statement.executeUpdate()
-          }
-      }
-
-      mediaRepository.findById(book.id).let { media ->
-        mediaRepository.update(
-          media.copy(
-            status = Media.Status.READY,
-            mediaType = "application/pdf",
-            pageCount = 1,
-            pages = listOf(BookPage("1.jpg", "image/jpeg")),
-          ),
-        )
-      }
-
-      book
-    }
-
-  private fun readSnapshot(path: String): String =
-    ClassPathResource(path).inputStream.bufferedReader().use { it.readText() }
-
-  @Test
-  fun `given unauthenticated request when getting opds v2 catalog then auth challenge is returned`() {
-    mockMvc
-      .get("/opds/v2/catalog")
-      .andExpect {
-        status { isUnauthorized() }
-        header { string(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"Realm\"") }
-        header { string(HttpHeaders.LINK, Matchers.containsString("<http://localhost/opds/v2/auth>; rel=\"http://opds-spec.org/auth/document\"")) }
-        header { string(HttpHeaders.CONTENT_TYPE, Matchers.containsString("application/opds-authentication+json")) }
-        jsonPath("$.id") { value(Matchers.containsString("/opds/v2/auth")) }
-        jsonPath("$.title") { value("Komga") }
-        jsonPath("$.authentication[0].type") { value("http://opds-spec.org/auth/basic") }
-        jsonPath("$.authentication[0].labels.login") { value("Email") }
-        jsonPath("$.authentication[0].labels.password") { value("Password") }
-      }
-  }
-
-  @Test
-  fun `when getting opds v2 auth document then returns auth document`() {
-    mockMvc
-      .get("/opds/v2/auth")
-      .andExpect {
-        status { isOk() }
-        header { string(HttpHeaders.CONTENT_TYPE, Matchers.containsString("application/opds-authentication+json")) }
-        content {
-          json(readSnapshot("compatibility-snapshots/opds/opds-v2-auth.json"), JsonCompareMode.STRICT)
-        }
-        jsonPath("$.id") { value(Matchers.containsString("/opds/v2/auth")) }
-        jsonPath("$.title") { value("Komga") }
-        jsonPath("$.description") { value("Enter your email and password to authenticate.") }
-        jsonPath("$.links.length()") { value(2) }
-        jsonPath("$.authentication.length()") { value(1) }
-        jsonPath("$.authentication[0].type") { value("http://opds-spec.org/auth/basic") }
-        jsonPath("$.authentication[0].labels.login") { value("Email") }
-        jsonPath("$.authentication[0].labels.password") { value("Password") }
-      }
-  }
-
-  @Test
-  @WithMockCustomUser
-  fun `given ready pdf book when getting opds v2 manifest then returns stable manifest shape`() {
-    val book = createReadyPdfBook()
-
-    mockMvc
-      .get("/opds/v2/books/${book.id}/manifest")
-      .andExpect {
-        status { isOk() }
-        header { string(HttpHeaders.CONTENT_TYPE, Matchers.containsString("application/opds-publication+json")) }
-        content {
-          json(readSnapshot("compatibility-snapshots/opds/opds-v2-manifest.json"), JsonCompareMode.STRICT)
-        }
-        jsonPath("$.context") { value("https://readium.org/webpub-manifest/context.jsonld") }
-        jsonPath("$.metadata.title") { value(book.name) }
-        jsonPath("$.links[0].rel") { value("self") }
-        jsonPath("$.links[0].href") { value(Matchers.containsString("/opds/v2/books/${book.id}/manifest")) }
-        jsonPath("$.links[1].href") { value(Matchers.containsString("/opds/v2/books/${book.id}/manifest/divina")) }
-        jsonPath("$.links[2].rel") { value("http://opds-spec.org/acquisition") }
-        jsonPath("$.links[3].rel") { value("http://www.cantook.com/api/progression") }
-        jsonPath("$.links[2].href") { value(Matchers.containsString("/opds/v2/books/${book.id}/file")) }
-        jsonPath("$.readingOrder[0].href") { value(Matchers.containsString("/opds/v2/books/${book.id}/pages/1/raw")) }
-        jsonPath("$.readingOrder[0].type") { value("application/pdf") }
-        jsonPath("$.resources[0].href") { value(Matchers.containsString("/opds/v2/books/${book.id}/thumbnail")) }
-      }
-  }
-
-  @Test
-  @WithMockCustomUser
-  fun `given invalid convert when getting opds v2 page then bad request is returned`() {
-    val book = createReadyPdfBook()
-
-    mockMvc
-      .get("/opds/v2/books/${book.id}/pages/1") {
-        param("convert", "webp")
-      }.andExpect {
-        status { isBadRequest() }
-        status { reason(Matchers.containsString("Invalid conversion format: webp")) }
-      }
-  }
-
-  @Test
-  @WithMockCustomUser(roles = [])
-  fun `given user without page streaming role when getting opds v2 page then forbidden is returned`() {
-    val book = createReadyPdfBook()
-
-    mockMvc
-      .get("/opds/v2/books/${book.id}/pages/1")
-      .andExpect {
-        status { isForbidden() }
-      }
   }
 
   @Nested

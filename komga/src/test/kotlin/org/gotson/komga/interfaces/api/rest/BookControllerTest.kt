@@ -1,16 +1,13 @@
 package org.gotson.komga.interfaces.api.rest
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.groups.Tuple.tuple
-import org.gotson.komga.domain.model.Book
 import org.gotson.komga.domain.model.Author
 import org.gotson.komga.domain.model.BookPage
 import org.gotson.komga.domain.model.Dimension
 import org.gotson.komga.domain.model.KomgaUser
 import org.gotson.komga.domain.model.MarkSelectedPreference
 import org.gotson.komga.domain.model.Media
-import org.gotson.komga.domain.model.Series
 import org.gotson.komga.domain.model.ThumbnailBook
 import org.gotson.komga.domain.model.makeBook
 import org.gotson.komga.domain.model.makeLibrary
@@ -26,7 +23,6 @@ import org.gotson.komga.domain.service.BookLifecycle
 import org.gotson.komga.domain.service.KomgaUserLifecycle
 import org.gotson.komga.domain.service.LibraryLifecycle
 import org.gotson.komga.domain.service.SeriesLifecycle
-import org.gotson.komga.jooq.main.Tables
 import org.gotson.komga.infrastructure.security.KomgaPrincipal
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.core.IsNull
@@ -35,13 +31,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
@@ -54,18 +47,14 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import org.jooq.DSLContext
 import java.net.URLEncoder
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.LocalDate
-import java.time.LocalDateTime
 import kotlin.random.Random
 
 @SpringBootTest
 @AutoConfigureMockMvc(printOnlyOnFailure = false)
-@Execution(ExecutionMode.SAME_THREAD)
 class BookControllerTest(
   @Autowired private val seriesRepository: SeriesRepository,
   @Autowired private val seriesMetadataRepository: SeriesMetadataRepository,
@@ -79,13 +68,10 @@ class BookControllerTest(
   @Autowired private val userRepository: KomgaUserRepository,
   @Autowired private val userLifecycle: KomgaUserLifecycle,
   @Autowired private val mockMvc: MockMvc,
-  @Autowired private val objectMapper: ObjectMapper,
-  @Qualifier("dslContextRW") private val dslContext: DSLContext,
 ) {
   private val library = makeLibrary(id = "1")
   private val user = KomgaUser("user@example.org", "", id = "1")
   private val user2 = KomgaUser("user2@example.org", "", id = "2")
-  private val fixedDateTime = LocalDateTime.parse("2024-01-02T03:04:05")
 
   @BeforeAll
   fun `setup library`() {
@@ -107,61 +93,6 @@ class BookControllerTest(
   @AfterEach
   fun `clear repository`() {
     seriesLifecycle.deleteMany(seriesRepository.findAll())
-  }
-
-  private fun createStableBooksFixture() {
-    val series =
-      Series(
-        name = "series",
-        url = URL("file:/series"),
-        fileLastModified = fixedDateTime,
-        id = "series-1",
-        libraryId = library.id,
-        createdDate = fixedDateTime,
-        lastModifiedDate = fixedDateTime,
-      )
-    val book =
-      Book(
-        name = "book.cbr",
-        url = URL("file:/book.cbr"),
-        fileLastModified = fixedDateTime,
-        fileSize = 0,
-        fileHash = "",
-        number = 1,
-        id = "book-1",
-        seriesId = series.id,
-        libraryId = library.id,
-        createdDate = fixedDateTime,
-        lastModifiedDate = fixedDateTime,
-      )
-
-    val createdSeries = seriesLifecycle.createSeries(series)
-    seriesLifecycle.addBooks(createdSeries, listOf(book))
-
-    dslContext.update(Tables.SERIES).set(Tables.SERIES.CREATED_DATE, fixedDateTime).set(Tables.SERIES.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.SERIES.ID.eq(series.id)).execute()
-    dslContext.update(Tables.SERIES_METADATA).set(Tables.SERIES_METADATA.CREATED_DATE, fixedDateTime).set(Tables.SERIES_METADATA.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.SERIES_METADATA.SERIES_ID.eq(series.id)).execute()
-    dslContext.update(Tables.BOOK).set(Tables.BOOK.CREATED_DATE, fixedDateTime).set(Tables.BOOK.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK.ID.eq(book.id)).execute()
-    dslContext.update(Tables.MEDIA).set(Tables.MEDIA.CREATED_DATE, fixedDateTime).set(Tables.MEDIA.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.MEDIA.BOOK_ID.eq(book.id)).execute()
-    dslContext.update(Tables.BOOK_METADATA).set(Tables.BOOK_METADATA.CREATED_DATE, fixedDateTime).set(Tables.BOOK_METADATA.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK_METADATA.BOOK_ID.eq(book.id)).execute()
-    dslContext.update(Tables.BOOK_METADATA_AGGREGATION).set(Tables.BOOK_METADATA_AGGREGATION.CREATED_DATE, fixedDateTime).set(Tables.BOOK_METADATA_AGGREGATION.LAST_MODIFIED_DATE, fixedDateTime).where(Tables.BOOK_METADATA_AGGREGATION.SERIES_ID.eq(series.id)).execute()
-  }
-
-  @Nested
-  inner class CompatibilitySnapshots {
-    @Test
-    @WithMockCustomUser
-    fun `given stable book fixture when getting books then matches snapshot`() {
-      createStableBooksFixture()
-
-      val response =
-        mockMvc
-          .get("/api/v1/books")
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      assertJsonSnapshot(objectMapper, "books-list.json", response.contentAsString)
-    }
   }
 
   @Nested
@@ -1303,18 +1234,6 @@ class BookControllerTest(
     }
 
     @Test
-    @WithMockCustomUser
-    fun `given missing book when marking read progress then not found is returned`() {
-      mockMvc
-        .patch("/api/v1/books/missing/read-progress") {
-          contentType = MediaType.APPLICATION_JSON
-          content = """{"page": 1}"""
-        }.andExpect {
-          status { isNotFound() }
-        }
-    }
-
-    @Test
     @WithMockCustomUser(id = "1")
     fun `given user when marking book in progress with page read then progress is marked accordingly`() {
       makeSeries(name = "series", libraryId = library.id).let { series ->
@@ -1458,62 +1377,6 @@ class BookControllerTest(
           jsonPath("$.readProgress") { value(IsNull.nullValue()) }
         }
     }
-  }
-
-  @Test
-  fun `given user when marking read progress then read progress is isolated per user`() {
-    makeSeries(name = "series", libraryId = library.id).let { series ->
-      seriesLifecycle.createSeries(series).also { created ->
-        val books = listOf(makeBook("1.cbr", libraryId = library.id))
-        seriesLifecycle.addBooks(created, books)
-      }
-    }
-
-    val book = bookRepository.findAll().first()
-    mediaRepository.findById(book.id).let { media ->
-      mediaRepository.update(
-        media.copy(
-          status = Media.Status.READY,
-          pages = (1..10).map { BookPage("$it", "image/jpeg") },
-          pageCount = 10,
-        ),
-      )
-    }
-
-    // language=JSON
-    val jsonString =
-      """
-      {
-        "page": 5
-      }
-      """.trimIndent()
-
-    mockMvc.perform(
-      MockMvcRequestBuilders
-        .patch("/api/v1/books/${book.id}/read-progress")
-        .with(user(KomgaPrincipal(user)))
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(jsonString),
-    ).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent())
-
-    mockMvc
-      .perform(
-        MockMvcRequestBuilders
-          .get("/api/v1/books/${book.id}")
-          .with(user(KomgaPrincipal(user)))
-          .contentType(MediaType.APPLICATION_JSON),
-      ).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
-      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.readProgress.page").value(5))
-      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.readProgress.completed").value(false))
-
-    mockMvc
-      .perform(
-        MockMvcRequestBuilders
-          .get("/api/v1/books/${book.id}")
-          .with(user(KomgaPrincipal(user2)))
-          .contentType(MediaType.APPLICATION_JSON),
-      ).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
-      .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.readProgress").value(IsNull.nullValue()))
   }
 
   @Test

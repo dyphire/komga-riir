@@ -46,7 +46,7 @@ export const InProgress: Story = {
     book: {
       ...mockBook,
       readProgress: {
-        ...mockBook.readProgress,
+        ...mockBook.readProgress!,
         completed: false,
         page: 25,
       },
@@ -59,6 +59,13 @@ export const Oneshot: Story = {
     book: {
       ...mockBook,
       oneshot: true,
+    },
+    oneShotAttributes: {
+      ageRating: 12,
+      genres: ['action', 'adventure'],
+      language: 'ja',
+      publisher: 'Dekopon Press',
+      readingDirection: 'WEBTOON',
     },
   },
 }

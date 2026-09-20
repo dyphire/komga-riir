@@ -48,10 +48,6 @@ COPY --from=builder /builder/extracted/spring-boot-loader/ ./
 COPY --from=builder /builder/extracted/snapshot-dependencies/ ./
 COPY --from=builder /builder/extracted/application/ ./
 ENV KOMGA_CONFIGDIR="/config"
-ENV KOMGA_CONFIG_DIR="/config"
-ENV KOMGA_RUST_PLATFORM_PROFILE="docker"
-ENV LOGGING_FILE_NAME="/config/logs/komga.log"
-ENV KOMGA_KEPUBIFY_PATH="/usr/bin/kepubify"
 ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 ENTRYPOINT ["java", "-Dspring.profiles.include=docker", "--enable-native-access=ALL-UNNAMED", "-jar", "application.jar", "--spring.config.additional-location=file:/config/"]
 EXPOSE 25600

@@ -1,7 +1,7 @@
 import { useCurrentUser } from '@/colada/users'
 import { useIntl } from 'vue-intl'
 import { storeToRefs } from 'pinia'
-import { useDialogsStore } from '@/stores/dialogs'
+import { type DialogResult, useDialogsStore } from '@/stores/dialogs'
 import { useDisplay } from 'vuetify/framework'
 import EntitiesDeletionWarning from '@/components/entities/DeletionWarning.vue'
 import {
@@ -22,6 +22,8 @@ import {
   useRefreshMetadataSeries,
 } from '@/colada/series'
 import type { BookDto, CollectionDto, ReadListDto, SeriesDto } from '@/generated/openapi'
+import { useAddToReadListDialog } from '@/composables/book/useAddToReadListDialog'
+import { useAddToCollectionDialog } from '@/composables/series/useAddToCollectionDialog'
 
 export function useEntitiesActions(
   entities: MaybeRefOrGetter<(BookDto | SeriesDto | CollectionDto | ReadListDto)[]>,
@@ -38,10 +40,18 @@ export function useEntitiesActions(
   //TODO: implement remaining actions
   const actionsSpecifics: Partial<Record<ActionName, object>> = {
     [ActionName.AddToCollection]: {
-      disabled: true,
+      onMouseenter: (event: Event) =>
+        (addToCollectionActivator.value = event.currentTarget as Element),
+      onClick: () => {
+        addToCollection(() => callback(ActionName.AddToCollection))
+      },
     },
     [ActionName.AddToReadList]: {
-      disabled: true,
+      onMouseenter: (event: Event) =>
+        (addToReadListActivator.value = event.currentTarget as Element),
+      onClick: () => {
+        addToReadList(() => callback(ActionName.AddToReadList))
+      },
     },
     [ActionName.EditBook]: {
       disabled: true,
@@ -135,6 +145,34 @@ export function useEntitiesActions(
   }
   //endregion
 
+  //region Add to collection
+  const { prepareDialog: showAddToCollectionDialog, activator: addToCollectionActivator } =
+    useAddToCollectionDialog()
+
+  function addToCollection(callback: () => void) {
+    showAddToCollectionDialog(
+      toValue(entities).flatMap((e) => {
+        if (isSeries(e)) return [e.id]
+        if (isBook(e) && e.oneshot) return [e.seriesId]
+        return []
+      }),
+      callback,
+    )
+  }
+  //endregion
+
+  //region Add to read list
+  const { prepareDialog: showAddToReadListDialog, activator: addToReadListActivator } =
+    useAddToReadListDialog()
+
+  function addToReadList(callback: () => void) {
+    showAddToReadListDialog(
+      toValue(entities).filter((e) => isBook(e) || isSeries(e)),
+      callback,
+    )
+  }
+  //endregion
+
   //region Delete
   function deleteAll() {
     dialogConfirm.value.dialogProps = {
@@ -166,11 +204,13 @@ export function useEntitiesActions(
       component: markRaw(EntitiesDeletionWarning),
       props: {},
     }
-    dialogConfirm.value.callback = () => {
-      toValue(entities).forEach((item) => {
-        if (isBook(item)) useDeleteBook().mutate(item.id)
-        if (isSeries(item)) useDeleteSeries().mutate(item.id)
-      })
+    dialogConfirm.value.callback = (result: DialogResult) => {
+      if (result === 'confirm') {
+        toValue(entities).forEach((item) => {
+          if (isBook(item)) useDeleteBook().mutate(item.id)
+          if (isSeries(item)) useDeleteSeries().mutate(item.id)
+        })
+      }
 
       callback(ActionName.Delete)
     }

@@ -6,7 +6,7 @@
     <PosterSizeSlider />
 
     <v-icon-btn
-      v-tooltip:bottom="$formatMessage(editMessage)"
+      v-ktooltip:bottom="$formatMessage(editMessage)"
       icon="i-mdi:star-cog"
       @mouseenter="(event: Event) => (dialogConfirmEdit.activator = event.currentTarget as Element)"
       @click="editSections()"
@@ -75,7 +75,7 @@ import {
   type ClientSettingUserOverviewSection,
 } from '@/types/ClientSettingsUser'
 import { storeToRefs } from 'pinia'
-import { useDialogsStore } from '@/stores/dialogs'
+import { type DialogResult, useDialogsStore } from '@/stores/dialogs'
 import { commonMessages } from '@/utils/i18n/common-messages'
 import { defineMessage, useIntl } from 'vue-intl'
 import { useDisplay } from 'vuetify'
@@ -112,8 +112,9 @@ function editSections() {
   dialogConfirmEdit.value.dialogProps = {
     title: intl.formatMessage(editMessage),
     maxWidth: 500,
-    okText: 'Save',
-    cardTextClass: 'px-0',
+    cardTextProps: {
+      class: 'px-0',
+    },
     closeOnSave: false,
     scrollable: false,
     fullscreen: display.xs.value,
@@ -123,9 +124,12 @@ function editSections() {
   }
   dialogConfirmEdit.value.record = toValue(overviewSections)
   dialogConfirmEdit.value.callback = (
+    result: DialogResult,
     hideDialog: () => void,
     setLoading: (isLoading: boolean) => void,
   ) => {
+    if (result === 'cancel') return
+
     setLoading(true)
 
     const updatedSections = dialogConfirmEdit.value.record as ClientSettingUserOverviewSection[]

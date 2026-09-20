@@ -142,4 +142,44 @@ export const commonMessages = {
     defaultMessage: 'More',
     id: '1VkZao',
   }),
+  notificationOpen: defineMessage({
+    description: 'Notification: button text to open element',
+    defaultMessage: 'Open',
+    id: 'XCwAkR',
+  }),
+  readListCreated: defineMessage({
+    description: 'Create read list notification: read list created',
+    defaultMessage: 'Read list created',
+    id: 'estf95',
+  }),
+  seriesFormGeneralPublisher: defineMessage({
+    description: 'Form edit series: General - series publisher',
+    defaultMessage: 'Publisher',
+    id: 'CW0idP',
+  }),
+  seriesFormGeneralReadingDirection: defineMessage({
+    description: 'Form edit series: General - series reading direction',
+    defaultMessage: 'Reading direction',
+    id: 'hPYi11',
+  }),
+  seriesFormGeneralAgeRating: defineMessage({
+    description: 'Form edit series: General - series age rating',
+    defaultMessage: 'Age rating',
+    id: 'tLFumw',
+  }),
+  seriesFormGeneralLanguage: defineMessage({
+    description: 'Form edit series: General - language',
+    defaultMessage: 'Language',
+    id: 'aR6KDt',
+  }),
+  seriesFormGeneralLanguageHint: defineMessage({
+    description: 'Form edit series: General - language, hint',
+    defaultMessage: 'IETF BCP 47 language tag',
+    id: '083NeH',
+  }),
+  bcp47Error: defineMessage({
+    description: 'Form edit series: General - language, error code',
+    defaultMessage: 'Must be a valid BCP 47 language code',
+    id: 'v3beFf',
+  }),
 }

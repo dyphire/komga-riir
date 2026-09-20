@@ -2,8 +2,17 @@ import { mockPage } from '@/mocks/api/pageable'
 import { PageRequest } from '@/types/PageRequest'
 import { http, HttpResponse } from 'msw'
 import mockThumbnailUrl from '@/assets/mock-thumbnail.jpg'
-import { handleGetBookById, handleGetBooks, handleImportBooks } from '@/generated/openapi/msw.gen'
+import {
+  handleGetBookById,
+  handleGetBookPageByNumber,
+  handleGetBookPages,
+  handleGetBooks,
+  handleGetBookThumbnails,
+  handleImportBooks,
+} from '@/generated/openapi/msw.gen'
 import { response200OK, response202Empty, response404NotFound } from '@/mocks/api/utils'
+import type { BookDto } from '@/generated/openapi'
+import { mockTransientBookAnalyzed3 } from '@/mocks/api/handlers/transient-books'
 
 export const mockBook = {
   id: '05RKH8CC8B4RW',
@@ -69,9 +78,9 @@ export const mockBook = {
   deleted: false,
   fileHash: '7dc12ae431a8847b7f49918745254b0b',
   oneshot: false,
-}
+} as BookDto
 
-export function mockBooks(count: number) {
+export function mockBooks(count: number): BookDto[] {
   return [...Array(count).keys()].map((index) =>
     Object.assign({}, mockBook, {
       id: `BOOK${index + 1}`,
@@ -106,7 +115,42 @@ export const booksHandlers = [
     )
   }),
   handleImportBooks(() => response202Empty()),
-  http.get('*/api/v1/books/*/thumbnail', async () => {
+  handleGetBookThumbnails(({ params }) =>
+    response200OK([
+      {
+        bookId: params.bookId,
+        fileSize: 1524,
+        height: 1300,
+        width: 1250,
+        mediaType: 'image/avif',
+        id: '1',
+        selected: true,
+        type: 'USER_UPLOADED',
+      },
+      {
+        bookId: params.bookId,
+        fileSize: 1524,
+        height: 300,
+        width: 250,
+        mediaType: 'image/jpeg',
+        id: '2',
+        selected: false,
+        type: 'GENERATED',
+      },
+    ]),
+  ),
+  handleGetBookPages(() => response200OK(mockTransientBookAnalyzed3.pages)),
+  handleGetBookPageByNumber(async () => {
+    // Get an ArrayBuffer from reading the file from disk or fetching it.
+    const buffer = await fetch(mockThumbnailUrl).then((response) => response.arrayBuffer())
+
+    return HttpResponse.arrayBuffer(buffer, {
+      headers: {
+        'content-type': 'image/jpg',
+      },
+    })
+  }),
+  http.get('*/api/v1/books/*/thumbnail*', async () => {
     // Get an ArrayBuffer from reading the file from disk or fetching it.
     const buffer = await fetch(mockThumbnailUrl).then((response) => response.arrayBuffer())
 

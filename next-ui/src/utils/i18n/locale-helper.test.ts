@@ -2,16 +2,20 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { loadLocale, fallbackLocale, setLocale, getLocale, availableLocales } from './locale-helper'
 
 // mock the available locales, as locales are checked against what's available
-vi.mock('@/i18n?dir2json&ext=.json&1', () => {
+vi.mock('@/i18n?dir2json&ext=.json&lazy', () => {
   return {
     default: {
-      en: {
-        sample: 'sample',
-      },
-      fr: {
-        sample: 'échantillon',
-      },
-    } as Record<string, Record<string, string>>,
+      en: vi.fn().mockResolvedValue({
+        default: {
+          sample: 'sample',
+        },
+      }),
+      fr: vi.fn().mockResolvedValue({
+        default: {
+          sample: 'échantillon',
+        },
+      }),
+    }
   }
 })
 
@@ -24,9 +28,9 @@ describe('locale', () => {
     expect(Object.keys(availableLocales)).toStrictEqual(['en', 'fr'])
   })
 
-  test('when trying to load unknown locale then fallback locale is loaded', () => {
-    const localeFallback = loadLocale(fallbackLocale)
-    const localeUnknown = loadLocale('unknown')
+  test('when trying to load unknown locale then fallback locale is loaded', async () => {
+    const localeFallback = await loadLocale(fallbackLocale)
+    const localeUnknown = await loadLocale('unknown')
 
     expect(localeUnknown).toBe(localeFallback)
   })

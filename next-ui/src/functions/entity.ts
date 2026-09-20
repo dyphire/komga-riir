@@ -1,6 +1,8 @@
 import * as v from 'valibot'
 import type { BookDto, ReadListDto, SeriesDto, CollectionDto } from '@/generated/openapi'
 
+export type EntityDto = BookDto | SeriesDto | ReadListDto | CollectionDto
+
 // Using looseObject ensures it doesn't fail due to the other fields in the DTO
 const BookDiscriminator = v.looseObject({
   seriesTitle: v.string(),
@@ -35,9 +37,9 @@ export function isReadList(item: unknown): item is ReadListDto {
   return v.is(ReadListDiscriminator, item)
 }
 
-export type EntityKind = 'book' | 'series' | 'collection' | 'readlist'
+export type EntityKind = 'book' | 'book_oneshot' | 'series' | 'collection' | 'readlist'
 export function resolveEntityKind(item: unknown): EntityKind | undefined {
-  if (isBook(item)) return 'book'
+  if (isBook(item)) return item.oneshot ? 'book_oneshot' : 'book'
   if (isSeries(item)) return 'series'
   if (isCollection(item)) return 'collection'
   if (isReadList(item)) return 'readlist'

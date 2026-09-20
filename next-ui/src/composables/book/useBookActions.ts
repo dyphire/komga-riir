@@ -1,7 +1,7 @@
 import { useCurrentUser } from '@/colada/users'
 import { useIntl } from 'vue-intl'
 import { storeToRefs } from 'pinia'
-import { useDialogsStore } from '@/stores/dialogs'
+import { type DialogResult, useDialogsStore } from '@/stores/dialogs'
 import { useMessagesStore } from '@/stores/messages'
 import { useDisplay } from 'vuetify/framework'
 import BookDeletionWarning from '@/components/book/DeletionWarning.vue'
@@ -20,6 +20,8 @@ import { useBook } from '@/composables/book/useBook'
 import { useBookReadProgress } from '@/composables/book/useBookReadProgress'
 import { bookReaderUrl } from '@/api/links'
 import type { BookDto } from '@/generated/openapi'
+import { useAddToReadListDialog } from '@/composables/book/useAddToReadListDialog'
+import { useAddToCollectionDialog } from '@/composables/series/useAddToCollectionDialog'
 
 export function useBookActions(
   book: MaybeRefOrGetter<BookDto>,
@@ -38,11 +40,11 @@ export function useBookActions(
       ? [
           {
             title: intl.formatMessage(actionDetails[ActionName.AddToCollection].message),
-            disabled: true, //TODO: implement
             action: ActionName.AddToCollection,
+            onMouseenter: (event: Event) =>
+              (addToCollectionActivator.value = event.currentTarget as Element),
             onClick: () => {
-              todo()
-              callback(ActionName.AddToCollection)
+              addToCollection(() => callback(ActionName.AddToCollection))
             },
           },
         ]
@@ -51,11 +53,11 @@ export function useBookActions(
       ? [
           {
             title: intl.formatMessage(actionDetails[ActionName.AddToReadList].message),
-            disabled: true, //TODO: implement
             action: ActionName.AddToReadList,
+            onMouseenter: (event: Event) =>
+              (addToReadListActivator.value = event.currentTarget as Element),
             onClick: () => {
-              todo()
-              callback(ActionName.AddToReadList)
+              addToReadList(() => callback(ActionName.AddToReadList))
             },
           },
         ]
@@ -182,7 +184,25 @@ export function useBookActions(
     },
   ])
 
-  //region Update Series metadata
+  //region Add to collection
+  const { prepareDialog: showAddToCollectionDialog, activator: addToCollectionActivator } =
+    useAddToCollectionDialog()
+
+  function addToCollection(callback: () => void) {
+    showAddToCollectionDialog([toValue(book).seriesId], callback)
+  }
+  //endregion
+
+  //region Add to read list
+  const { prepareDialog: showAddToReadListDialog, activator: addToReadListActivator } =
+    useAddToReadListDialog()
+
+  function addToReadList(callback: () => void) {
+    showAddToReadListDialog([toValue(book)], callback)
+  }
+  //endregion
+
+  //region Update Book metadata
   const { prepareDialog: showEditBookMetadataDialog, activator: editMetadataActivator } =
     useEditBookMetadataDialog()
 
@@ -208,9 +228,6 @@ export function useBookActions(
     callback(ActionName.Analyze)
   }
   //endregion
-
-  //TODO: do :)
-  function todo() {}
 
   //region Mark read
   const { mutate: mutateMarkRead } = useMarkBookRead()
@@ -256,25 +273,28 @@ export function useBookActions(
       component: markRaw(BookDeletionWarning),
       props: {},
     }
-    dialogConfirm.value.callback = () => {
-      mutateDelete(toValue(book).id)
-        .then(() => {
-          messagesStore.messages.push({
-            message: intl.formatMessage(
-              {
-                description: 'Snackbar notification shown upon successful book files deletion',
-                defaultMessage: 'Book files deleted: {book}',
-                id: 'ccDES8',
-              },
-              {
-                book: toValue(book).metadata.title,
-              },
-            ),
+    dialogConfirm.value.callback = (result: DialogResult) => {
+      if (result === 'confirm') {
+        mutateDelete(toValue(book).id)
+          .then(() => {
+            messagesStore.messages.push({
+              message: intl.formatMessage(
+                {
+                  description: 'Snackbar notification shown upon successful book files deletion',
+                  defaultMessage: 'Book files deleted: {book}',
+                  id: 'ccDES8',
+                },
+                {
+                  book: toValue(book).metadata.title,
+                },
+              ),
+            })
           })
-        })
-        .catch((error) => {
-          messagesStore.messages.push(error?.cause?.message ?? commonMessages.networkError)
-        })
+          .catch((error) => {
+            messagesStore.messages.push(error?.cause?.message ?? commonMessages.networkError)
+          })
+      }
+
       callback(ActionName.Delete)
     }
   }

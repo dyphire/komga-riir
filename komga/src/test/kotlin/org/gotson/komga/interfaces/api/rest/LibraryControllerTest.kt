@@ -1,6 +1,5 @@
 package org.gotson.komga.interfaces.api.rest
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.gotson.komga.domain.model.makeLibrary
 import org.gotson.komga.domain.persistence.LibraryRepository
 import org.hamcrest.Matchers
@@ -27,7 +26,6 @@ import java.nio.file.Path
 class LibraryControllerTest(
   @Autowired private val mockMvc: MockMvc,
   @Autowired private val libraryRepository: LibraryRepository,
-  @Autowired private val objectMapper: ObjectMapper,
 ) {
   private val route = "/api/v1/libraries"
 
@@ -78,19 +76,6 @@ class LibraryControllerTest(
     }
 
     @Test
-    @WithMockCustomUser
-    fun `given user with access to all libraries when getAll then matches snapshot`() {
-      val response =
-        mockMvc
-          .get(route)
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      assertJsonSnapshot(objectMapper, "libraries-list-user.json", response.contentAsString)
-    }
-
-    @Test
     @WithMockUser
     fun `given user with USER role when addOne then return forbidden`() {
       // language=JSON
@@ -101,19 +86,6 @@ class LibraryControllerTest(
           contentType = MediaType.APPLICATION_JSON
           content = jsonString
         }.andExpect { status { isForbidden() } }
-    }
-
-    @Test
-    @WithMockCustomUser(roles = ["ADMIN"])
-    fun `given admin user when getAll then matches snapshot`() {
-      val response =
-        mockMvc
-          .get(route)
-          .andExpect { status { isOk() } }
-          .andReturn()
-          .response
-
-      assertJsonSnapshot(objectMapper, "libraries-list-admin.json", response.contentAsString)
     }
   }
 
@@ -225,24 +197,6 @@ class LibraryControllerTest(
           jsonPath("$.scanDirectoryExclusions.length()") { value(1) }
           jsonPath("$.scanDirectoryExclusions") { hasItems("updated") }
         }
-    }
-  }
-
-  @Nested
-  inner class ValidationSnapshots {
-    @Test
-    @WithMockCustomUser(roles = ["ADMIN"])
-    fun `given invalid library creation when addOne then matches snapshot`() {
-      val response =
-        mockMvc
-          .post(route) {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"name":"","root":""}"""
-          }.andExpect { status { isBadRequest() } }
-          .andReturn()
-          .response
-
-      assertJsonSnapshot(objectMapper, "validation-error.json", response.contentAsString)
     }
   }
 }

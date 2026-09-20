@@ -6,7 +6,7 @@
         sm="3"
       >
         <ItemPoster
-          :poster-url="seriesPosterUrl(series.id)"
+          :poster-url="seriesPosterUrl(series.id, cacheStore.getVersion(series.id))"
           :top-right-icon="isRead ? 'i-mdi:check' : undefined"
           :top-right="unreadCount"
           :max-width="posterMaxWidth"
@@ -22,8 +22,8 @@
             $formatMessage(
               {
                 description: 'Series view: book on deck',
-                defaultMessage: 'On deck — #{number}',
-                id: '5cbjLE',
+                defaultMessage: 'On deck — {number}',
+                id: '4jKnoO',
               },
               { number: bookOnDeck.metadata.number },
             )
@@ -253,11 +253,15 @@ import { languageDisplayNames } from '@/utils/i18n/locale-helper'
 import { type SeriesStatus, seriesStatusMessages } from '@/types/SeriesStatus'
 import { storeToRefs } from 'pinia'
 import { useDialogsStore } from '@/stores/dialogs'
-import { useBooks } from '@/composables/book/useBooks'
 import type { SeriesDto } from '@/generated/openapi'
+import { useImageCacheStore } from '@/stores/image-cache'
+import { getFirstBookInParentOptions } from '@/functions/book-container'
+import { useQuery } from '@pinia/colada'
+import { bookListQuery } from '@/colada/books'
 
 const intl = useIntl()
 const display = useDisplay()
+const cacheStore = useImageCacheStore()
 const id = useId()
 const posterMaxWidth = 220
 
@@ -266,9 +270,13 @@ const props = defineProps<{
 }>()
 
 const { unreadCount, isRead } = useSeries(() => props.series)
-const { getFirstBookInParentQuery } = useBooks(() => props.series)
 
-const { data: booksOnDeck } = getFirstBookInParentQuery(true)
+const bookOnDeckOptions = computed(() => getFirstBookInParentOptions(props.series, true))
+const { data: booksOnDeck } = useQuery(() =>
+  bookListQuery({
+    ...bookOnDeckOptions.value,
+  }),
+)
 const bookOnDeck = computed(() => booksOnDeck.value?.content?.[0])
 
 const alternateTitles = computed(() =>

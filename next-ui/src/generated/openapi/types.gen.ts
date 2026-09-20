@@ -1125,16 +1125,17 @@ export type SettingMultiSourceString = {
 };
 
 export type SettingsDto = {
-    deleteEmptyCollections: boolean;
-    deleteEmptyReadLists: boolean;
-    kepubifyPath: SettingMultiSourceString;
+    deleteEmptyCollections?: boolean;
+    deleteEmptyReadLists?: boolean;
+    kepubifyPath?: SettingMultiSourceString;
     koboPort?: number;
-    koboProxy: boolean;
-    rememberMeDurationDays: number;
-    serverContextPath: SettingMultiSourceString;
-    serverPort: SettingMultiSourceInteger;
-    taskPoolSize: number;
-    thumbnailSize: ThumbnailSizeEnum;
+    koboProxy?: boolean;
+    maxUploadFileSizeBytes?: number;
+    rememberMeDurationDays?: number;
+    serverContextPath?: SettingMultiSourceString;
+    serverPort?: SettingMultiSourceInteger;
+    taskPoolSize?: number;
+    thumbnailSize?: ThumbnailSizeEnum;
 };
 
 /**
@@ -2790,6 +2791,10 @@ export type GetCollectionsData = {
          * The size of the page to be returned
          */
         size?: number;
+        /**
+         * Sorting criteria in the format: property(,asc|desc). Default sort order is ascending. Multiple sort criteria are supported.
+         */
+        sort?: Array<string>;
     };
     url: '/api/v1/collections';
 };
@@ -3822,6 +3827,10 @@ export type GetReadListsData = {
          * The size of the page to be returned
          */
         size?: number;
+        /**
+         * Sorting criteria in the format: property(,asc|desc). Default sort order is ascending. Multiple sort criteria are supported.
+         */
+        sort?: Array<string>;
     };
     url: '/api/v1/readlists';
 };

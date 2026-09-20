@@ -9,8 +9,14 @@
           v-if="titleTo"
           :to="titleTo"
           class="link-underline"
-          >{{ title }}</RouterLink
-        >
+          >{{ title }}
+          <v-icon
+            v-if="isTouchPrimary"
+            size="xs"
+            class="text-medium-emphasis"
+            :icon="isRtl ? 'i-mdi:chevron-left' : 'i-mdi:chevron-right'"
+          />
+        </RouterLink>
         <div v-else>{{ title }}</div>
       </div>
 
@@ -19,16 +25,16 @@
         class="d-flex align-center"
       >
         <v-icon-btn
-          icon="i-mdi:chevron-left"
+          :icon="isRtl ? 'i-mdi:chevron-right' : 'i-mdi:chevron-left'"
           :disabled="!slideGroup?.hasPrev"
           variant="text"
-          @click="slideGroup?.scrollTo('prev')"
+          @click="slideGroup?.slide('prev')"
         />
         <v-icon-btn
-          icon="i-mdi:chevron-right"
+          :icon="isRtl ? 'i-mdi:chevron-left' : 'i-mdi:chevron-right'"
           :disabled="!slideGroup?.hasNext"
           variant="text"
-          @click="slideGroup?.scrollTo('next')"
+          @click="slideGroup?.slide('next')"
         />
       </div>
     </div>
@@ -68,8 +74,10 @@ import { VSlideGroup } from 'vuetify/components'
 import { usePrimaryInput } from '@/composables/device'
 import { type SelectionType, useSelectionStore } from '@/stores/selection'
 import type { RouteLocationRaw } from 'vue-router'
+import { useRtl } from 'vuetify/framework'
 
 const { isTouchPrimary } = usePrimaryInput()
+const { isRtl } = useRtl()
 
 const slideGroup = ref<InstanceType<typeof VSlideGroup> | null>(null)
 const showArrows = computed(

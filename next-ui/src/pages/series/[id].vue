@@ -1,17 +1,17 @@
 <template>
   <v-app-bar>
-    <LibraryHeader
-      class="ms-4"
-      :library-id="series?.libraryId"
-      link
-    />
+    <template #prepend>
+      <LibraryHeader
+        class="ms-4"
+        :library-id="series?.libraryId"
+        link
+      />
 
-    <ChipCount
-      class="ms-2"
-      :count="totalElements"
-    />
-
-    <v-spacer />
+      <ChipCount
+        class="ms-2"
+        :count="totalElements"
+      />
+    </template>
 
     <PosterSizeSlider />
 
@@ -200,10 +200,8 @@
 </template>
 
 <script lang="ts" setup>
-import { useInfiniteQuery, useQuery } from '@pinia/colada'
-import { seriesDetailQuery } from '@/colada/series'
+import { useInfiniteQuery, useQuery, useQueryCache } from '@pinia/colada'
 import EmptyStateNetworkError from '@/components/EmptyStateNetworkError.vue'
-import { useBooks } from '@/composables/book/useBooks'
 import { filterKeys } from '@/types/filter'
 import { usePagination } from '@/composables/pagination'
 import { useSelectionStore } from '@/stores/selection'
@@ -231,8 +229,10 @@ import PosterSizeSlider from '@/components/PosterSizeSlider.vue'
 import { commonMessages } from '@/utils/i18n/common-messages'
 import { contributorsRolesMessages } from '@/types/referential'
 import { useSelectionContextualActions } from '@/composables/selection'
-import { logger } from '@/services/logtape'
 import type { SearchConditionBook } from '@/generated/openapi'
+import { seriesDetailQuery } from '@/colada/series'
+import { logger } from '@/services/logtape'
+import { getFirstBookInParent } from '@/functions/book-container'
 
 // oneshot redirection
 definePage({
@@ -240,13 +240,16 @@ definePage({
     logger.debug('navigation guard: check if series is oneshot')
     const params = to.params as { id: string }
 
-    const { data, refresh } = useQuery(seriesDetailQuery({ seriesId: params.id }))
-    await refresh()
+    // check cache
+    const queryCache = useQueryCache()
+    const cacheEntry = queryCache.ensure(seriesDetailQuery({ seriesId: params.id }))
+    const state = await queryCache.refresh(cacheEntry)
+    const series = state.data
 
-    if (data.value?.oneshot) {
+    if (series?.oneshot) {
       logger.debug('navigation guard: series is oneshot, fetch book for redirection')
-      const { getFirstBookInParent } = useBooks(params.id)
-      const book = await getFirstBookInParent(false)
+      const book = await getFirstBookInParent(series, false)
+
       if (book) {
         logger.debug('navigation guard: book found, redirect to book page')
         return {

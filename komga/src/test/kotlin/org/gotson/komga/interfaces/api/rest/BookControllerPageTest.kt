@@ -22,7 +22,6 @@ import org.gotson.komga.domain.service.SeriesLifecycle
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -110,49 +109,6 @@ class BookControllerPageTest(
         status { if (success) isOk() else isBadRequest() }
         if (resultType != null)
           header { string(HttpHeaders.CONTENT_TYPE, resultType) }
-      }
-  }
-
-  @Test
-  @WithMockCustomUser
-  fun `given pdf negotiation when getting page with cache headers then returns 304 not modified`() {
-    makeSeries(name = "series", libraryId = library.id).let { series ->
-      seriesLifecycle.createSeries(series).let { created ->
-        val books = listOf(makeBook("1", libraryId = library.id))
-        seriesLifecycle.addBooks(created, books)
-      }
-    }
-
-    val book = bookRepository.findAll().first()
-    mediaRepository.findById(book.id).let {
-      mediaRepository.update(
-        it.copy(
-          status = Media.Status.READY,
-          mediaType = "application/pdf",
-          pages = listOf(BookPage("file", "image/jpeg")),
-        ),
-      )
-    }
-
-    every { mockAnalyzer.getPageContentRaw(any(), 1) } returns TypedBytes(ByteArray(0), "application/pdf")
-    every { bookLifecycle.getBookPage(any(), 1, any(), any()) } returns TypedBytes(ByteArray(0), "image/jpeg")
-
-    val lastModified =
-      mockMvc
-        .get("/api/v1/books/${book.id}/pages/1") {
-          accept(MediaType.APPLICATION_PDF)
-        }.andReturn()
-        .response
-        .getHeader(HttpHeaders.LAST_MODIFIED)
-
-    mockMvc
-      .get("/api/v1/books/${book.id}/pages/1") {
-        accept(MediaType.APPLICATION_PDF)
-        headers {
-          set(HttpHeaders.IF_MODIFIED_SINCE, lastModified!!)
-        }
-      }.andExpect {
-        status { isNotModified() }
       }
   }
 

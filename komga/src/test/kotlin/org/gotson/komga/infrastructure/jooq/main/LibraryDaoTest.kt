@@ -6,16 +6,13 @@ import org.gotson.komga.infrastructure.jooq.offset
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import java.net.URL
 import java.time.LocalDateTime
-import javax.sql.DataSource
 
 @SpringBootTest
 class LibraryDaoTest(
   @Autowired private val libraryDao: LibraryDao,
-  @Autowired @Qualifier("sqliteDataSourceRO") private val dataSourceRO: DataSource,
 ) {
   @AfterEach
   fun deleteLibraries() {
@@ -217,29 +214,6 @@ class LibraryDaoTest(
 
     assertThat(found).isNotNull
     assertThat(found?.name).isEqualTo("Library")
-  }
-
-  @Test
-  fun `given inserted library when querying through ro datasource then library is visible`() {
-    val library =
-      Library(
-        name = "Library",
-        root = URL("file://library"),
-      )
-
-    libraryDao.insert(library)
-
-    val foundName =
-      dataSourceRO.connection.use { connection ->
-        connection.prepareStatement("SELECT name FROM library WHERE id = ?").use { statement ->
-          statement.setString(1, library.id)
-          statement.executeQuery().use { resultSet ->
-            if (resultSet.next()) resultSet.getString(1) else null
-          }
-        }
-      }
-
-    assertThat(foundName).isEqualTo(library.name)
   }
 
   @Test

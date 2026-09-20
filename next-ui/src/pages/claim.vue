@@ -80,17 +80,19 @@
                 id: 'ezgnXr',
               })
             "
-            :rules="[
+            :rules="
               [
-                'sameAs',
-                password,
-                $formatMessage({
-                  description: 'Claim server screen:: Error message if passwords differ',
-                  defaultMessage: 'Passwords must be identical',
-                  id: 'ZWFPAg',
-                }),
-              ],
-            ]"
+                [
+                  'sameAs',
+                  password,
+                  $formatMessage({
+                    description: 'Claim server screen:: Error message if passwords differ',
+                    defaultMessage: 'Passwords must be identical',
+                    id: 'ZWFPAg',
+                  }),
+                ],
+              ] satisfies CustomRuleTuple[]
+            "
             autocomplete="off"
             :type="showPassword ? 'text' : 'password'"
             :append-inner-icon="showPassword ? 'i-mdi:eye' : 'i-mdi:eye-off'"
@@ -135,7 +137,8 @@ import { useMessagesStore } from '@/stores/messages'
 import { commonMessages } from '@/utils/i18n/common-messages'
 import { useClaimServer } from '@/colada/claim'
 import { useLogin } from '@/colada/users'
-import { useRules } from 'vuetify/labs/rules'
+import { useRules } from 'vuetify'
+import type { CustomRuleTuple } from '@/plugins/vuetify'
 
 const messagesStore = useMessagesStore()
 const rules = useRules()

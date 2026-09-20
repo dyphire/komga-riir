@@ -13,7 +13,7 @@
     <template #append>
       <v-icon-btn
         v-if="isAdmin"
-        v-tooltip:bottom="
+        v-ktooltip:bottom="
           $formatMessage({
             description: 'Add library button: tooltip',
             defaultMessage: 'Create library',
@@ -85,11 +85,11 @@
 </template>
 
 <script setup lang="ts">
-import { useLibraries } from '@/colada/libraries'
 import { useCurrentUser } from '@/colada/users'
 import { useCreateLibraryDialog } from '@/composables/library/useCreateLibraryDialog'
+import { useUserLibraries } from '@/composables/libraries'
 
-const { unpinned, pinned, refresh } = useLibraries()
+const { unpinned, pinned, refresh } = useUserLibraries()
 const { isAdmin } = useCurrentUser()
 
 const id = useId()
