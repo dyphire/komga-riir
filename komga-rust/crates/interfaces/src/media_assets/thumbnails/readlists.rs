@@ -188,12 +188,17 @@ pub(crate) async fn readlist_thumbnail_by_id(
 
 pub(crate) async fn readlist_thumbnail_upload(
     State(app): State<MediaAssetsState>,
-    _: Admin,
+    Admin(user): Admin,
     Path(readlist_id): Path<String>,
     multipart: Multipart,
 ) -> Response {
     if let Err(response) = ensure_readlist_exists(&app, &readlist_id).await {
         return *response;
+    }
+    match user_can_access_readlist_media(&app, &readlist_id, &user).await {
+        Ok(true) => {}
+        Ok(false) => return StatusCode::NOT_FOUND.into_response(),
+        Err(error) => return internal_error_response(error),
     }
 
     let upload = match parse_thumbnail_upload(multipart, "readlist").await {
@@ -223,11 +228,16 @@ pub(crate) async fn readlist_thumbnail_upload(
 
 pub(crate) async fn readlist_thumbnail_select(
     State(app): State<MediaAssetsState>,
-    _: Admin,
+    Admin(user): Admin,
     Path((readlist_id, thumbnail_id)): Path<(String, String)>,
 ) -> Response {
     if let Err(response) = ensure_readlist_exists(&app, &readlist_id).await {
         return *response;
+    }
+    match user_can_access_readlist_media(&app, &readlist_id, &user).await {
+        Ok(true) => {}
+        Ok(false) => return StatusCode::NOT_FOUND.into_response(),
+        Err(error) => return internal_error_response(error),
     }
 
     match app
@@ -254,11 +264,16 @@ pub(crate) async fn readlist_thumbnail_select(
 
 pub(crate) async fn readlist_thumbnail_delete(
     State(app): State<MediaAssetsState>,
-    _: Admin,
+    Admin(user): Admin,
     Path((readlist_id, thumbnail_id)): Path<(String, String)>,
 ) -> Response {
     if let Err(response) = ensure_readlist_exists(&app, &readlist_id).await {
         return *response;
+    }
+    match user_can_access_readlist_media(&app, &readlist_id, &user).await {
+        Ok(true) => {}
+        Ok(false) => return StatusCode::NOT_FOUND.into_response(),
+        Err(error) => return internal_error_response(error),
     }
     match app
         .thumbnail_reader

@@ -151,7 +151,11 @@ where
                 .persisted
                 .load_collection_series(&collection.id, collection.ordered)
                 .await?;
-            let has_visible_series = series
+            // Kotlin's findAll(libs, libs) keeps a collection when at least one
+            // of its series belongs to an authorized library; content
+            // restrictions are applied only at the entry (series) level, not
+            // to the collection itself.
+            let has_library_visible_series = series
                 .iter()
                 .any(|series| user.can_access_library(&series.library_id));
             let keep_empty = library_id.is_none()
@@ -159,7 +163,7 @@ where
                 && series.is_empty()
                 && user.allowed_library_ids().is_none();
 
-            if has_visible_series || keep_empty {
+            if has_library_visible_series || keep_empty {
                 visible_collections.push(collection);
             }
         }
@@ -179,7 +183,7 @@ where
                 .persisted
                 .load_collection_series(&collection.id, collection.ordered)
                 .await?;
-            if series.iter().any(|series| series_is_visible(user, series)) {
+            if series.iter().any(|series| user.can_access_library(&series.library_id)) {
                 return Ok(true);
             }
         }
@@ -201,25 +205,28 @@ where
             return Ok(None);
         };
 
-        let visible_series = self
+        let all_series = self
             .persisted
             .load_collection_series(collection_id, collection.ordered)
-            .await?
-            .into_iter()
-            .filter(|series| user.can_access_library(&series.library_id))
-            .collect::<Vec<_>>();
+            .await?;
 
-        if visible_series.is_empty() {
+        // Kotlin's findByIdOrNull(id, libs) returns 404 only when no series of
+        // the collection belongs to an authorized library; otherwise the
+        // detail is returned even when every series is filtered out by
+        // content restrictions (empty feed, HTTP 200).
+        if !all_series
+            .iter()
+            .any(|series| user.can_access_library(&series.library_id))
+        {
             return Ok(None);
         }
 
-        Ok(Some(OpdsCollectionDetail {
-            collection,
-            series: visible_series
-                .into_iter()
-                .filter(|series| series_is_visible(user, series))
-                .collect(),
-        }))
+        let series = all_series
+            .into_iter()
+            .filter(|series| series_is_visible(user, series))
+            .collect();
+
+        Ok(Some(OpdsCollectionDetail { collection, series }))
     }
 
     pub async fn collection_books(
@@ -248,6 +255,9 @@ where
 
         for readlist in readlists {
             let books = self.persisted.load_readlist_books(&readlist.id).await?;
+            // Kotlin keeps a read list when at least one of its books belongs
+            // to an authorized library; content restrictions apply only at
+            // the entry (book) level.
             if books
                 .iter()
                 .any(|book| user.can_access_library(&book.library_id))
@@ -273,7 +283,7 @@ where
             let books = self.persisted.load_readlist_books(&readlist.id).await?;
             if books
                 .iter()
-                .any(|book| readlist_book_is_visible(user, book))
+                .any(|book| user.can_access_library(&book.library_id))
             {
                 return Ok(true);
             }
@@ -296,22 +306,27 @@ where
             return Ok(None);
         };
 
-        let visible_books = self
+        let all_books = self
             .persisted
             .load_readlist_books(readlist_id)
-            .await?
-            .into_iter()
-            .filter(|book| user.can_access_library(&book.library_id))
-            .collect::<Vec<_>>();
+            .await?;
 
-        if visible_books.is_empty() {
+        // Kotlin's findByIdOrNull(id, libs) returns 404 only when no book of
+        // the read list belongs to an authorized library; otherwise the
+        // detail is returned even when every book is filtered out by content
+        // restrictions (empty feed, HTTP 200).
+        if !all_books
+            .iter()
+            .any(|book| user.can_access_library(&book.library_id))
+        {
             return Ok(None);
         }
 
-        let mut books = visible_books
+        let mut books = all_books
             .into_iter()
             .filter(|book| {
-                book.media_status == Some(MediaStatus::Ready)
+                user.can_access_library(&book.library_id)
+                    && book.media_status == Some(MediaStatus::Ready)
                     && user.content_allowed(book.age_rating, &book.sharing_labels)
             })
             .collect::<Vec<_>>();

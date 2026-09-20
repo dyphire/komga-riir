@@ -114,6 +114,10 @@ pub(crate) fn format_http_date(time: SystemTime) -> Option<String> {
         .ok()?
         .format(&Rfc2822)
         .ok()
+        // HTTP-date per RFC 7231 requires the GMT zone name; time's Rfc2822
+        // formatter emits the numeric "+0000" offset, which is not the
+        // canonical IMF-fixdate that Spring (Kotlin backend) produces.
+        .map(|value| value.replace(" +0000", " GMT"))
 }
 
 pub(crate) fn file_last_modified_header_value(path: &Path) -> Option<String> {
@@ -267,6 +271,23 @@ mod tests {
     use axum::routing::get;
     use futures_util::stream;
     use tower::util::ServiceExt;
+
+    #[test]
+    fn if_modified_since_roundtrip() {
+        let date = format_http_date(std::time::UNIX_EPOCH + std::time::Duration::new(1_790_000_000, 0)).unwrap();
+        println!("formatted: {date}");
+        assert!(date.ends_with(" GMT"), "HTTP-date must use GMT zone name: {date}");
+        let mut headers = HeaderMap::new();
+        headers.insert(header::IF_MODIFIED_SINCE, date.parse().unwrap());
+        assert!(if_modified_since_matches(&headers, &date), "same value must match");
+        let older = "Mon, 01 Jan 2000 00:00:00 GMT";
+        let mut older_headers = HeaderMap::new();
+        older_headers.insert(header::IF_MODIFIED_SINCE, older.parse().unwrap());
+        assert!(!if_modified_since_matches(&older_headers, &date), "older must not match");
+        let mut future_headers = HeaderMap::new();
+        future_headers.insert(header::IF_MODIFIED_SINCE, "Mon, 01 Jan 2030 00:00:00 GMT".parse().unwrap());
+        assert!(if_modified_since_matches(&future_headers, &date), "future must match");
+    }
 
     #[test]
     fn excluded_paths_match_expected_templates() {

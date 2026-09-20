@@ -3,6 +3,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use komga_application::identity_access::user_is_admin;
 use komga_application::operational::{
     PersistedServerSettings, ServerSettingPatch, ServerSettingsLoadError,
     ServerSettingsUpdateCommand, ServerSettingsUpdateError, ThumbnailSize,
@@ -11,7 +12,7 @@ use serde_json::Value;
 
 use crate::contracts::common::MessageDto;
 use crate::contracts::operational::{SettingMultiSourceDto, SettingsDto, ThumbnailSizeDto};
-use crate::identity_access::auth::Admin;
+use crate::identity_access::auth::{Admin, Authenticated};
 use crate::state::{RuntimeState, ServerSettingsState};
 
 fn invalid_settings_payload(message: &str) -> Response {
@@ -27,12 +28,18 @@ fn invalid_settings_payload(message: &str) -> Response {
 
 pub(crate) async fn get_server_settings(
     State(app): State<ServerSettingsState>,
-    Admin(_admin): Admin,
+    Authenticated(current_user): Authenticated,
 ) -> Response {
     let settings = match app.server_settings.load().await {
         Ok(settings) => settings,
         Err(ServerSettingsLoadError::Load(error)) => return settings_load_error_response(error),
     };
+
+    if !user_is_admin(&current_user) {
+        // Non-admins only see upload limits (parity with Kotlin's public view).
+        return Json(SettingsDto::public(super::super::MAX_UPLOAD_FILE_SIZE_BYTES))
+            .into_response();
+    }
 
     Json(settings_dto(&app.runtime, &settings)).into_response()
 }
@@ -239,24 +246,29 @@ fn optional_string_patch(
 
 fn settings_dto(runtime: &RuntimeState, settings: &PersistedServerSettings) -> SettingsDto {
     SettingsDto {
-        delete_empty_collections: settings.delete_empty_collections,
-        delete_empty_read_lists: settings.delete_empty_read_lists,
-        remember_me_duration_days: settings.remember_me_duration_days,
-        thumbnail_size: thumbnail_size_dto(settings.thumbnail_size),
-        task_pool_size: settings.task_pool_size,
-        server_port: SettingMultiSourceDto::new(
+        delete_empty_collections: Some(settings.delete_empty_collections),
+        delete_empty_read_lists: Some(settings.delete_empty_read_lists),
+        remember_me_duration_days: Some(settings.remember_me_duration_days),
+        thumbnail_size: Some(thumbnail_size_dto(settings.thumbnail_size)),
+        task_pool_size: Some(settings.task_pool_size),
+        server_port: Some(SettingMultiSourceDto::new(
             Some(runtime.configuration_bind_address.port()),
             settings.server_port,
             Some(runtime.bind_address.port()),
-        ),
-        server_context_path: SettingMultiSourceDto::new(
+        )),
+        server_context_path: Some(SettingMultiSourceDto::new(
             runtime.configuration_server_context_path.clone(),
             settings.server_context_path.clone(),
             Some(runtime.server_context_path.clone().unwrap_or_default()),
-        ),
-        kobo_proxy: settings.kobo_proxy,
+        )),
+        kobo_proxy: Some(settings.kobo_proxy),
         kobo_port: settings.kobo_port,
-        kepubify_path: SettingMultiSourceDto::new(None, settings.kepubify_path.clone(), None),
+        kepubify_path: Some(SettingMultiSourceDto::new(
+            None,
+            settings.kepubify_path.clone(),
+            None,
+        )),
+        max_upload_file_size_bytes: Some(super::super::MAX_UPLOAD_FILE_SIZE_BYTES),
     }
 }
 

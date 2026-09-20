@@ -137,6 +137,14 @@ impl TransientBookService {
         Ok(entry.clone())
     }
 
+    /// Source-file last-modified time (unix nanos) for a transient book, used
+    /// for HTTP conditional requests (`If-Modified-Since` / `Last-Modified`).
+    pub fn file_last_modified_nanos(&self, transient_book_id: &str) -> Option<i128> {
+        self.lock_store()
+            .get_cloned(transient_book_id)
+            .map(|record| record.file_last_modified_unix_nanos)
+    }
+
     pub fn page_content(
         &self,
         transient_book_id: &str,

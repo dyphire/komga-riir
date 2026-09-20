@@ -682,9 +682,47 @@ pub(crate) async fn collection_detail(
     }
 }
 
+/// When the caller carries content restrictions, refuse to mutate a collection
+/// whose members are not all visible to them (parity with the Kotlin backend
+/// passing `principal.user.restrictions` into the mutation load). Callers with
+/// no restrictions are unaffected.
+async fn ensure_collection_visible_for_mutation(
+    app: &DiscoveryState,
+    headers: &HeaderMap,
+    collection_id: &str,
+    full_series_ids: &[String],
+) -> Result<(), Response> {
+    let context = match app
+        .discovery_auth
+        .resolve_query_context_with_persistence(&app.identity, headers, None)
+        .await
+    {
+        Ok(Some(context)) => context,
+        Ok(None) => return Err(StatusCode::UNAUTHORIZED.into_response()),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+    };
+    let domain_context = to_domain_query_context(context);
+    if domain_context.restrictions.is_none() {
+        return Ok(());
+    }
+    let visible = match app
+        .persisted_sets
+        .visible_collection_series_ids(&domain_context, collection_id)
+        .await
+    {
+        Ok(ids) => ids,
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+    };
+    if visible.len() != full_series_ids.len() {
+        return Err(StatusCode::NOT_FOUND.into_response());
+    }
+    Ok(())
+}
+
 pub(crate) async fn collection_update(
     State(app): State<DiscoveryState>,
     _: Admin,
+    headers: HeaderMap,
     Path(collection_id): Path<String>,
     body: Bytes,
 ) -> Response {
@@ -708,6 +746,11 @@ pub(crate) async fn collection_update(
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(error) => return internal_error_response(error),
     };
+    if let Err(response) =
+        ensure_collection_visible_for_mutation(&app, &headers, &collection_id, &existing.series_ids).await
+    {
+        return response;
+    }
     let input = merge_collection_patch_input(&existing, patch);
 
     let path = format!("/api/v1/collections/{collection_id}");
@@ -743,8 +786,23 @@ pub(crate) async fn collection_update(
 pub(crate) async fn collection_delete(
     State(app): State<DiscoveryState>,
     _: Admin,
+    headers: HeaderMap,
     Path(collection_id): Path<String>,
 ) -> Response {
+    let full_series_ids = match app
+        .persisted_sets
+        .collection_for_mutation(&collection_id)
+        .await
+    {
+        Ok(Some(collection)) => collection.series_ids,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(error) => return internal_error_response(error),
+    };
+    if let Err(response) =
+        ensure_collection_visible_for_mutation(&app, &headers, &collection_id, &full_series_ids).await
+    {
+        return response;
+    }
     match app.persisted_sets.delete_collection(&collection_id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => StatusCode::NOT_FOUND.into_response(),

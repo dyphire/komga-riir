@@ -1,5 +1,5 @@
 use axum::Router;
-use axum::extract::{Request, State};
+use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::http::{HeaderValue, Method, Uri};
 use axum::middleware;
 use axum::middleware::Next;
@@ -258,7 +258,11 @@ pub fn build_router(app: HttpAppState) -> Router {
         )
         .route(
             "/api/v1/series/{series_id}/thumbnails",
-            get(media_assets::handlers::series_thumbnails).post(media_assets::handlers::series_thumbnail_upload),
+            get(media_assets::handlers::series_thumbnails)
+                .post(media_assets::handlers::series_thumbnail_upload)
+                .layer(DefaultBodyLimit::max(
+                    crate::operational::MAX_UPLOAD_REQUEST_SIZE_BYTES as usize,
+                )),
         )
         .route(
             "/api/v1/series/{series_id}/thumbnails/{thumbnail_id}",
@@ -324,7 +328,10 @@ pub fn build_router(app: HttpAppState) -> Router {
         )
         .route(
             "/api/v1/readlists/match/comicrack",
-            post(discovery::detail::readlist_match_comicrack),
+            post(discovery::detail::readlist_match_comicrack)
+                .layer(DefaultBodyLimit::max(
+                    crate::operational::MAX_UPLOAD_REQUEST_SIZE_BYTES as usize,
+                )),
         )
         .route(
             "/api/v1/readlists/{readlist_id}",
@@ -338,7 +345,11 @@ pub fn build_router(app: HttpAppState) -> Router {
         )
         .route(
             "/api/v1/readlists/{readlist_id}/thumbnails",
-            get(media_assets::handlers::readlist_thumbnails).post(media_assets::handlers::readlist_thumbnail_upload),
+            get(media_assets::handlers::readlist_thumbnails)
+                .post(media_assets::handlers::readlist_thumbnail_upload)
+                .layer(DefaultBodyLimit::max(
+                    crate::operational::MAX_UPLOAD_REQUEST_SIZE_BYTES as usize,
+                )),
         )
         .route(
             "/api/v1/readlists/{readlist_id}/thumbnails/{thumbnail_id}",
@@ -389,7 +400,11 @@ pub fn build_router(app: HttpAppState) -> Router {
         )
         .route(
             "/api/v1/collections/{collection_id}/thumbnails",
-            get(media_assets::handlers::collection_thumbnails).post(media_assets::handlers::collection_thumbnail_upload),
+            get(media_assets::handlers::collection_thumbnails)
+                .post(media_assets::handlers::collection_thumbnail_upload)
+                .layer(DefaultBodyLimit::max(
+                    crate::operational::MAX_UPLOAD_REQUEST_SIZE_BYTES as usize,
+                )),
         )
         .route(
             "/api/v1/collections/{collection_id}/thumbnails/{thumbnail_id}",
@@ -422,7 +437,11 @@ pub fn build_router(app: HttpAppState) -> Router {
         )
         .route(
             "/api/v1/books/{book_id}/thumbnails",
-            get(media_assets::handlers::book_thumbnails).post(media_assets::handlers::book_thumbnail_upload),
+            get(media_assets::handlers::book_thumbnails)
+                .post(media_assets::handlers::book_thumbnail_upload)
+                .layer(DefaultBodyLimit::max(
+                    crate::operational::MAX_UPLOAD_REQUEST_SIZE_BYTES as usize,
+                )),
         )
         .route(
             "/api/v1/books/{book_id}/thumbnails/{thumbnail_id}",

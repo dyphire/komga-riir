@@ -1,3 +1,14 @@
+/// Maximum size of a single uploaded file for multipart uploads
+/// (thumbnail/cover/comicrack), matching the Kotlin backend's Spring Boot
+/// default `spring.servlet.multipart.max-file-size` (1MB; komga does not
+/// override it in application.yml).
+pub(crate) const MAX_UPLOAD_FILE_SIZE_BYTES: u64 = 1024 * 1024;
+
+/// Maximum size of the whole multipart request body, matching the Kotlin
+/// backend's Spring Boot default `spring.servlet.multipart.max-request-size`
+/// (10MB).
+pub(crate) const MAX_UPLOAD_REQUEST_SIZE_BYTES: u64 = 10 * 1024 * 1024;
+
 mod announcements;
 mod claims;
 mod client_settings;

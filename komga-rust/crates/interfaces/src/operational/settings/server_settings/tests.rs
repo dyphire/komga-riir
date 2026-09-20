@@ -21,7 +21,7 @@ use komga_infrastructure_base::evict_shared_pools_for_paths;
 use komga_infrastructure_operational::ServerSettingsStore;
 use serde_json::json;
 
-use crate::identity_access::auth::Admin;
+use crate::identity_access::auth::{Admin, Authenticated};
 use crate::state::OperationalState;
 use crate::state::{
     OAuth2ClientConfig, OperationalBuildMetadata, RuntimeState, ServerSettingsState,
@@ -184,7 +184,7 @@ async fn get_server_settings_does_not_apply_runtime_task_pool_size() {
         fixture.store,
     ));
     let response =
-        get_server_settings(State(test_server_settings_state(&app)), Admin(admin_user())).await;
+        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(apply_count.load(Ordering::SeqCst), 0);
@@ -203,7 +203,7 @@ async fn get_server_settings_preserves_null_string_sources() {
         fixture.store,
     ));
     let response =
-        get_server_settings(State(test_server_settings_state(&app)), Admin(admin_user())).await;
+        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let response_body = to_bytes(response.into_body(), usize::MAX)
@@ -251,7 +251,7 @@ async fn get_server_settings_returns_runtime_server_port_configuration_source() 
         fixture.store,
     ));
     let response =
-        get_server_settings(State(test_server_settings_state(&app)), Admin(admin_user())).await;
+        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let response_body = to_bytes(response.into_body(), usize::MAX)

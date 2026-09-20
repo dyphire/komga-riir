@@ -2,6 +2,8 @@ mod actuator;
 mod cors;
 mod nextui_assets;
 mod settings;
+
+pub(crate) use settings::{MAX_UPLOAD_FILE_SIZE_BYTES, MAX_UPLOAD_REQUEST_SIZE_BYTES};
 mod sse;
 mod webui;
 mod webui_assets;

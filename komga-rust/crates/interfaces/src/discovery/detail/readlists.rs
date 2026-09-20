@@ -259,7 +259,7 @@ pub(crate) async fn readlist_match_comicrack(
 ) -> Response {
     let xml = match extract_comicrack_upload_xml(multipart).await {
         Ok(xml) => xml,
-        Err(error) => return comicrack_bad_request_response(&format!("{error:#}")),
+        Err(response) => return response,
     };
 
     let request = match parse_comicrack_readlist(&xml) {
@@ -274,6 +274,23 @@ pub(crate) async fn readlist_match_comicrack(
         },
         Err(error) => internal_error_response(error),
     }
+}
+
+fn payload_too_large_response() -> Response {
+    (
+        StatusCode::PAYLOAD_TOO_LARGE,
+        Json(SpringErrorDto {
+            error: "Payload Too Large".to_string(),
+            message: "Request payload is too large".to_string(),
+            path: "/api/v1/readlists/match/comicrack".to_string(),
+            status: 413,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+        }),
+    )
+        .into_response()
 }
 
 fn comicrack_bad_request_response(error_code: &str) -> Response {
@@ -293,9 +310,48 @@ fn comicrack_bad_request_response(error_code: &str) -> Response {
         .into_response()
 }
 
+/// When the caller carries content restrictions, refuse to mutate a read list
+/// whose members are not all visible to them (parity with the Kotlin backend
+/// passing `principal.user.restrictions` into the mutation load). Callers with
+/// no restrictions are unaffected.
+async fn ensure_readlist_visible_for_mutation(
+    app: &DiscoveryState,
+    headers: &HeaderMap,
+    readlist_id: &str,
+    full_book_ids: &[String],
+) -> Result<(), Response> {
+    let context = match app
+        .discovery_auth
+        .resolve_query_context_with_persistence(&app.identity, headers, None)
+        .await
+    {
+        Ok(Some(context)) => context,
+        Ok(None) => return Err(StatusCode::UNAUTHORIZED.into_response()),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+    };
+    let domain_context = to_domain_query_context(context);
+    if domain_context.restrictions.is_none() {
+        return Ok(());
+    }
+    let visible = match app
+        .persisted_sets
+        .visible_readlist_book_ids(&domain_context, readlist_id)
+        .await
+    {
+        Ok(Some(ids)) => ids,
+        Ok(None) => return Err(StatusCode::NOT_FOUND.into_response()),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+    };
+    if visible.len() != full_book_ids.len() {
+        return Err(StatusCode::NOT_FOUND.into_response());
+    }
+    Ok(())
+}
+
 pub(crate) async fn readlist_update(
     State(app): State<DiscoveryState>,
     _: Admin,
+    headers: HeaderMap,
     Path(readlist_id): Path<String>,
     body: Bytes,
 ) -> Response {
@@ -312,6 +368,11 @@ pub(crate) async fn readlist_update(
     }) else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    if let Err(response) =
+        ensure_readlist_visible_for_mutation(&app, &headers, &readlist_id, &existing.book_ids).await
+    {
+        return response;
+    }
     let input = merge_readlist_write_input(&existing, &payload);
 
     match app
@@ -346,8 +407,19 @@ pub(crate) async fn readlist_update(
 pub(crate) async fn readlist_delete(
     State(app): State<DiscoveryState>,
     _: Admin,
+    headers: HeaderMap,
     Path(readlist_id): Path<String>,
 ) -> Response {
+    let full_book_ids = match app.persisted_sets.readlist_for_mutation(&readlist_id).await {
+        Ok(Some(readlist)) => readlist.book_ids,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(error) => return internal_error_response(error),
+    };
+    if let Err(response) =
+        ensure_readlist_visible_for_mutation(&app, &headers, &readlist_id, &full_book_ids).await
+    {
+        return response;
+    }
     match app.persisted_sets.delete_readlist(&readlist_id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
         Ok(false) => StatusCode::NOT_FOUND.into_response(),
@@ -513,17 +585,23 @@ fn book_details_page_payload(
 
 async fn extract_comicrack_upload_xml(
     multipart: Result<Multipart, MultipartRejection>,
-) -> anyhow::Result<Vec<u8>> {
-    let mut multipart = multipart.map_err(|rejection| anyhow::anyhow!(rejection.body_text()))?;
+) -> Result<Vec<u8>, Response> {
+    let mut multipart = match multipart {
+        Ok(multipart) => multipart,
+        Err(rejection) if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE => {
+            return Err(payload_too_large_response());
+        }
+        Err(rejection) => return Err(comicrack_bad_request_response(&rejection.body_text())),
+    };
 
     loop {
         let field = multipart
             .next_field()
             .await
-            .map_err(|error| anyhow::anyhow!(error.body_text()))?;
+            .map_err(|error| comicrack_multipart_error_response(error))?;
         let Some(field) = field else {
-            return Err(anyhow::anyhow!(
-                "Required request part 'file' is not present"
+            return Err(comicrack_bad_request_response(
+                "Required request part 'file' is not present",
             ));
         };
 
@@ -534,11 +612,22 @@ async fn extract_comicrack_upload_xml(
         let bytes = field
             .bytes()
             .await
-            .map_err(|error| anyhow::anyhow!(error.body_text()))?;
+            .map_err(|error| comicrack_multipart_error_response(error))?;
         if bytes.is_empty() {
-            return Err(anyhow::anyhow!("ERR_1015"));
+            return Err(comicrack_bad_request_response("ERR_1015"));
+        }
+        if bytes.len() as u64 > crate::operational::MAX_UPLOAD_FILE_SIZE_BYTES {
+            return Err(payload_too_large_response());
         }
 
         return Ok(bytes.to_vec());
+    }
+}
+
+fn comicrack_multipart_error_response(error: axum_extra::extract::multipart::MultipartError) -> Response {
+    if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        payload_too_large_response()
+    } else {
+        comicrack_bad_request_response(&error.body_text())
     }
 }

@@ -2,7 +2,7 @@ use axum::Json;
 use axum::body::Bytes;
 use axum::extract::Path as AxumPath;
 use axum::extract::State;
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use komga_application::operational::{
     TransientBookAnalyzeError, TransientBookPageError, TransientBookScanError,
@@ -108,6 +108,7 @@ pub(crate) async fn post_transient_book_analyze(
 pub(crate) async fn get_transient_book_page(
     State(app): State<OperationalApiState>,
     _admin: Admin,
+    headers: HeaderMap,
     AxumPath((transient_book_id, page_number)): AxumPath<(String, i32)>,
 ) -> Response {
     let content = match app
@@ -136,9 +137,28 @@ pub(crate) async fn get_transient_book_page(
         }
     };
 
-    (
-        [(header::CONTENT_TYPE, content.content_type)],
+    // Conditional GET: 304 when the client's If-Modified-Since is not older
+    // than the source file's last-modified time (parity with Kotlin).
+    let last_modified = app
+        .transient_books
+        .file_last_modified_nanos(&transient_book_id)
+        .and_then(|nanos| {
+            let seconds = u64::try_from(nanos / 1_000_000_000).ok()?;
+            let subsec_nanos = u32::try_from(nanos % 1_000_000_000).ok()?;
+            crate::cache::format_http_date(
+                std::time::UNIX_EPOCH + std::time::Duration::new(seconds, subsec_nanos),
+            )
+        });
+    if let Some(last_modified) = last_modified.as_deref()
+        && crate::cache::if_modified_since_matches(&headers, last_modified)
+    {
+        return crate::cache::asset_not_modified_response(None, Some(last_modified));
+    }
+
+    crate::cache::asset_ok_response(
+        &content.content_type,
         content.bytes,
+        None,
+        last_modified.as_deref(),
     )
-        .into_response()
 }

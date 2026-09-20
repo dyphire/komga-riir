@@ -308,10 +308,11 @@ pub(super) async fn parse_thumbnail_upload(
             Ok(Some(field)) => field,
             Ok(None) => break,
             Err(error) => {
-                return Err(Box::new(invalid_thumbnail_upload_response(
-                    entity_name,
-                    error,
-                )));
+                return Err(Box::new(if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                    thumbnail_upload_too_large_response()
+                } else {
+                    invalid_thumbnail_upload_response(entity_name, error)
+                }));
             }
         };
 
@@ -321,14 +322,18 @@ pub(super) async fn parse_thumbnail_upload(
                 let bytes = match field.bytes().await {
                     Ok(bytes) => bytes,
                     Err(error) => {
-                        return Err(Box::new(invalid_thumbnail_upload_response(
-                            entity_name,
-                            error,
-                        )));
+                        return Err(Box::new(if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                            thumbnail_upload_too_large_response()
+                        } else {
+                            invalid_thumbnail_upload_response(entity_name, error)
+                        }));
                     }
                 };
                 if bytes.is_empty() {
                     return Err(Box::new(empty_thumbnail_upload_response(entity_name)));
+                }
+                if bytes.len() as u64 > crate::operational::MAX_UPLOAD_FILE_SIZE_BYTES {
+                    return Err(Box::new(thumbnail_upload_too_large_response()));
                 }
 
                 let resolved_media_type =
@@ -403,6 +408,13 @@ fn empty_thumbnail_upload_response(entity_name: &str) -> Response {
     spring_error_response(
         StatusCode::BAD_REQUEST,
         format!("{entity_name} thumbnail upload body must not be empty"),
+    )
+}
+
+fn thumbnail_upload_too_large_response() -> Response {
+    spring_error_response(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "Request payload is too large".to_string(),
     )
 }
 
