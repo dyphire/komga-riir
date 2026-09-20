@@ -128,8 +128,12 @@ pub(super) fn parse_roles_array(value: Option<&Value>) -> Result<Vec<AuthUserRol
         let Some(role) = value.as_str() else {
             return Err("roles must be an array of strings");
         };
-        let role =
-            AuthUserRole::from_persisted_name(role).ok_or("roles contains an unknown role")?;
+        // Parity with Kotlin: UserRoles.valuesOf() silently drops names that
+        // are not enum constants, so legacy webui payloads (e.g. "USER") must
+        // not fail the request.
+        let Some(role) = AuthUserRole::from_persisted_name(role) else {
+            continue;
+        };
         roles.insert(role);
     }
     Ok(roles.into_iter().collect())
@@ -490,10 +494,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_roles_array_rejects_unknown_roles() {
-        let error = parse_roles_array(Some(&json!(["PAGE_STREAMING", "BROKEN"])))
-            .expect_err("unknown roles should be rejected");
+    fn parse_roles_array_ignores_unknown_roles_like_kotlin() {
+        let roles = parse_roles_array(Some(&json!(["PAGE_STREAMING", "BROKEN", "USER"])))
+            .expect("unknown roles should be ignored");
+        assert_eq!(roles, vec![AuthUserRole::PageStreaming]);
+    }
 
-        assert_eq!(error, "roles contains an unknown role");
+    #[test]
+    fn parse_roles_array_rejects_non_string_entries() {
+        let error = parse_roles_array(Some(&json!(["ADMIN", 42])))
+            .expect_err("non-string entries should be rejected");
+        assert_eq!(error, "roles must be an array of strings");
     }
 }
