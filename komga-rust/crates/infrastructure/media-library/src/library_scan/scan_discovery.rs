@@ -101,7 +101,7 @@ pub(super) fn collect_series_directories(
     if has_supported_book {
         let directory_metadata = fs::metadata(current).map_err(|error| {
             anyhow::anyhow!("{error:?}").context(format!(
-                "failed to read series directory metadata for '{}': ",
+                "failed to read series directory metadata for '{}'",
                 current.display()
             ))
         })?;

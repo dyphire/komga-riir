@@ -677,7 +677,7 @@ fn analyze_zip_media_pages(
         ))
     })?;
     let mut archive = zip::ZipArchive::new(file).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("open zip archive '{}': ", file_path.display()))
+        anyhow::anyhow!(error).context(format!("open zip archive '{}'", file_path.display()))
     })?;
 
     let mut files = Vec::new();
@@ -944,7 +944,7 @@ fn analyze_epub_media_pages(
         })?;
         Some(zip::ZipArchive::new(file).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "open EPUB archive for dimensions '{}': ",
+                "open EPUB archive for dimensions '{}'",
                 file_path.display()
             ))
         })?)
@@ -1078,7 +1078,7 @@ fn analyze_mobi_media_pages(
         ))
     })?;
     let publication = normalize_mobi(&bytes).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("normalize MOBI file '{}': ", file_path.display()))
+        anyhow::anyhow!(error).context(format!("normalize MOBI file '{}'", file_path.display()))
     })?;
 
     let mut files = publication
@@ -1262,7 +1262,7 @@ fn analyze_pdf_media_pages(
     profile: MediaAnalysisProfile,
 ) -> anyhow::Result<AnalyzedMediaFileContents> {
     let document = PdfDocument::load(file_path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("load pdf '{}': ", file_path.display()))
+        anyhow::anyhow!(error).context(format!("load pdf '{}'", file_path.display()))
     })?;
     let page_count = document.get_pages().len();
     let pages = (0..page_count)

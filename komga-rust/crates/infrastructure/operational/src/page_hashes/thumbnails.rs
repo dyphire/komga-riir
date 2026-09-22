@@ -172,7 +172,7 @@ async fn read_unknown_thumbnail_bytes(
             .map(Some)
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read page-hash thumbnail source '{}': ",
+                    "read page-hash thumbnail source '{}'",
                     source_path.display()
                 ))
             });
@@ -184,13 +184,13 @@ async fn read_unknown_thumbnail_bytes(
         return tokio::task::spawn_blocking(move || -> anyhow::Result<Option<Vec<u8>>> {
             let file = fs::File::open(&path).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "open page-hash thumbnail archive '{}': ",
+                    "open page-hash thumbnail archive '{}'",
                     path.display()
                 ))
             })?;
             let mut archive = ZipArchive::new(file).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read page-hash thumbnail archive '{}': ",
+                    "read page-hash thumbnail archive '{}'",
                     path.display()
                 ))
             })?;
@@ -208,7 +208,7 @@ async fn read_unknown_thumbnail_bytes(
             let mut bytes = Vec::new();
             Read::read_to_end(&mut entry, &mut bytes).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read page-hash thumbnail archive entry '{}' from '{}': ",
+                    "read page-hash thumbnail archive entry '{}' from '{}'",
                     file_name,
                     path.display()
                 ))
@@ -222,7 +222,7 @@ async fn read_unknown_thumbnail_bytes(
     if matches!(extension.as_str(), "cbr" | "rar") {
         return read_rar_entry_bytes(source_path, file_name).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read page-hash thumbnail rar entry '{}' from '{}': ",
+                "read page-hash thumbnail rar entry '{}' from '{}'",
                 file_name,
                 source_path.display()
             ))
@@ -260,7 +260,7 @@ fn single_image_page_row(
     let file_size = match fs::metadata(&media.file_path) {
         Ok(metadata) if metadata.is_file() => i64::try_from(metadata.len()).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "convert page-hash media file size '{}': ",
+                "convert page-hash media file size '{}'",
                 media.file_path.display()
             ))
         })?,

@@ -20,7 +20,7 @@ use super::scan_models::{
 fn compute_file_sha256(path: PathBuf) -> anyhow::Result<String> {
     let file = std::fs::File::open(&path).map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to open book file for restore '{}': ",
+            "failed to open book file for restore '{}'",
             path.display()
         ))
     })?;
@@ -30,7 +30,7 @@ fn compute_file_sha256(path: PathBuf) -> anyhow::Result<String> {
     loop {
         let bytes_read = reader.read(&mut buffer).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to read book file for restore '{}': ",
+                "failed to read book file for restore '{}'",
                 path.display()
             ))
         })?;
@@ -110,7 +110,7 @@ WHERE BOOK_ID = ?"#,
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore MEDIA rows for '{}': ",
+                "failed to restore MEDIA rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -125,7 +125,7 @@ WHERE BOOK_ID = ?"#,
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore MEDIA_FILE rows for '{}': ",
+                "failed to restore MEDIA_FILE rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -140,7 +140,7 @@ WHERE BOOK_ID = ?"#,
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore MEDIA_PAGE rows for '{}': ",
+                "failed to restore MEDIA_PAGE rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -158,7 +158,7 @@ WHERE BOOK_ID = ?
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore THUMBNAIL_BOOK rows for '{}': ",
+                "failed to restore THUMBNAIL_BOOK rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -173,7 +173,7 @@ WHERE BOOK_ID = ?"#,
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore READ_PROGRESS rows for '{}': ",
+                "failed to restore READ_PROGRESS rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -188,7 +188,7 @@ WHERE BOOK_ID = ?"#,
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to restore READLIST_BOOK rows for '{}': ",
+                "failed to restore READLIST_BOOK rows for '{}'",
                 inserted.book_id
             ))
         })?;
@@ -250,7 +250,7 @@ WHERE BOOK_ID = ?"#,
             .await
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to restore BOOK_METADATA row for '{}': ",
+                    "failed to restore BOOK_METADATA row for '{}'",
                     inserted.book_id
                 ))
             })?;
@@ -518,7 +518,7 @@ WHERE ID = ?"#,
             .await
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to touch restored SERIES row for '{}': ",
+                    "failed to touch restored SERIES row for '{}'",
                     inserted.series_id
                 ))
             })?;
@@ -565,7 +565,7 @@ WHERE SERIES_ID = ?"#,
             .bind(&inserted.series_id)
             .execute(pool)
             .await
-            .map_err(|error| anyhow::anyhow!(error).context( format!("failed to restore SERIES_METADATA row for '{}': ", inserted.series_id)))?;
+            .map_err(|error| anyhow::anyhow!(error).context( format!("failed to restore SERIES_METADATA row for '{}'", inserted.series_id)))?;
             for table in [
                 "SERIES_METADATA_GENRE",
                 "SERIES_METADATA_TAG",

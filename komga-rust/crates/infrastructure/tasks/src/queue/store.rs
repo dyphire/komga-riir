@@ -29,7 +29,7 @@ fn persisted_row_from_runtime_record(
 ) -> anyhow::Result<PersistedTaskRowShape> {
     PersistedTaskRowShape::from_queue_record(runtime_record_from_store_record(task.clone()))
         .map_err(|error| {
-            anyhow::anyhow!(error).context(format!("build persisted task row for '{}': ", task.id))
+            anyhow::anyhow!(error).context(format!("build persisted task row for '{}'", task.id))
         })
 }
 
@@ -50,7 +50,7 @@ impl SqliteTaskQueueStore {
             .await
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "open tasks sqlite pool '{}': ",
+                    "open tasks sqlite pool '{}'",
                     tasks_db_file.display()
                 ))
             })?;

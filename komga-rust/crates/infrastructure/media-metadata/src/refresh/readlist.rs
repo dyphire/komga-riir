@@ -27,7 +27,7 @@ pub(super) async fn upsert_comicinfo_readlist(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to load readlist '{}' for '{}': ",
+                "failed to load readlist '{}' for '{}'",
                 readlist.name, book_id
             ))
         })?
@@ -48,7 +48,7 @@ pub(super) async fn upsert_comicinfo_readlist(
             .execute(pool)
             .await
             .map_err(|error| { anyhow::anyhow!(error).context( format!(
-                    "failed to create ComicInfo readlist '{}' for '{}': ",
+                    "failed to create ComicInfo readlist '{}' for '{}'",
                     readlist.name, book_id,
                 ))
             })?;
@@ -67,7 +67,7 @@ pub(super) async fn upsert_comicinfo_readlist(
             .await
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to check ComicInfo readlist membership '{}' for '{}': ",
+                    "failed to check ComicInfo readlist membership '{}' for '{}'",
                     readlist.name, book_id,
                 ))
             })?
@@ -80,7 +80,7 @@ pub(super) async fn upsert_comicinfo_readlist(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to assign ComicInfo readlist number '{}' for '{}': ",
+                "failed to assign ComicInfo readlist number '{}' for '{}'",
                 readlist.name, book_id,
             ))
         })?;
@@ -93,7 +93,7 @@ pub(super) async fn upsert_comicinfo_readlist(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to insert ComicInfo readlist membership '{}' for '{}': ",
+                "failed to insert ComicInfo readlist membership '{}' for '{}'",
                 readlist.name, book_id,
             ))
         })?;
@@ -112,7 +112,7 @@ pub(super) async fn upsert_comicinfo_readlist(
     .await
     .map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to update ComicInfo readlist counters '{}' for '{}': ",
+            "failed to update ComicInfo readlist counters '{}' for '{}'",
             readlist.name, book_id,
         ))
     })?;

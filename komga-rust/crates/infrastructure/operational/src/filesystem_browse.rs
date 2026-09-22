@@ -120,11 +120,11 @@ fn list_directory_entries(
 ) -> anyhow::Result<Vec<FilesystemEntry>> {
     let mut entries = Vec::new();
     for entry in fs::read_dir(path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("read filesystem directory '{}': ", path.display()))
+        anyhow::anyhow!(error).context(format!("read filesystem directory '{}'", path.display()))
     })? {
         let entry = entry.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read filesystem directory entry '{}': ",
+                "read filesystem directory entry '{}'",
                 path.display()
             ))
         })?;
@@ -135,7 +135,7 @@ fn list_directory_entries(
 
         let file_type = entry.file_type().map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read filesystem directory entry type '{}': ",
+                "read filesystem directory entry type '{}'",
                 entry.path().display()
             ))
         })?;
@@ -172,7 +172,7 @@ fn entry_is_hidden(entry: &fs::DirEntry, name: &str) -> anyhow::Result<bool> {
         .map(|metadata| metadata.file_attributes() & 0x2 != 0)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read filesystem directory entry metadata '{}': ",
+                "read filesystem directory entry metadata '{}'",
                 entry.path().display()
             ))
         })

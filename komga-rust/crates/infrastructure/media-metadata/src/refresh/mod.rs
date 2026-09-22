@@ -190,7 +190,7 @@ async fn refresh_book_metadata_internal(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to resolve book path for metadata refresh '{book_id}': "
+                "failed to resolve book path for metadata refresh '{book_id}'"
             ))
         })?;
 
@@ -243,7 +243,7 @@ async fn refresh_book_metadata_internal(
                         .transpose()
                         .map_err(|error| {
                             anyhow::anyhow!(error).context(format!(
-                                "failed to use supplied ComicInfo.xml for '{}': ",
+                                "failed to use supplied ComicInfo.xml for '{}'",
                                 media.file_path.display()
                             ))
                         })?,
@@ -253,7 +253,7 @@ async fn refresh_book_metadata_internal(
                         .transpose()
                         .map_err(|error| {
                             anyhow::anyhow!(error).context(format!(
-                                "failed to parse ComicInfo.xml from '{}': ",
+                                "failed to parse ComicInfo.xml from '{}'",
                                 media.file_path.display()
                             ))
                         })?,
@@ -391,7 +391,7 @@ async fn refresh_book_metadata_internal(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to resolve book SSE context for '{book_id}': "
+                "failed to resolve book SSE context for '{book_id}'"
             ))
         })?;
         let series_id = book_context
@@ -567,7 +567,7 @@ pub async fn refresh_series_metadata(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to refresh SERIES_METADATA for '{series_id}': "
+                "failed to refresh SERIES_METADATA for '{series_id}'"
             ))
         })?;
 
@@ -584,7 +584,7 @@ pub async fn refresh_series_metadata(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to resolve LIBRARY_ID for refreshed series '{series_id}': "
+                "failed to resolve LIBRARY_ID for refreshed series '{series_id}'"
             ))
         })
         .map(|row| SeriesMetadataRefreshContext {

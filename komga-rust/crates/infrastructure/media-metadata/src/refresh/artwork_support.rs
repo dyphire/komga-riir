@@ -156,7 +156,7 @@ pub(super) fn render_pdf_thumbnail(
         .load_pdf_from_file(&media.file_path, None)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to load PDF for thumbnail generation '{}': ",
+                "failed to load PDF for thumbnail generation '{}'",
                 media.file_path.display()
             ))
         })?;
@@ -179,14 +179,14 @@ pub(super) fn render_pdf_thumbnail(
         )
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to render PDF page for thumbnail generation '{}': ",
+                "failed to render PDF page for thumbnail generation '{}'",
                 media.file_path.display()
             ))
         })?
         .as_image()
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to convert PDF render to image '{}': ",
+                "failed to convert PDF render to image '{}'",
                 media.file_path.display()
             ))
         })?
@@ -199,7 +199,7 @@ pub(super) fn render_pdf_thumbnail(
         .write_to(&mut output, image::ImageFormat::Jpeg)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to encode PDF thumbnail for '{}': ",
+                "failed to encode PDF thumbnail for '{}'",
                 media.file_path.display()
             ))
         })?;
@@ -233,21 +233,21 @@ pub(super) async fn load_book_local_artwork_urls(
     let mut artwork_urls = Vec::new();
     let mut entries = fs::read_dir(book_dir).await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to scan local artwork directory '{}' for '{}': ",
+            "failed to scan local artwork directory '{}' for '{}'",
             book_dir.display(),
             book_url,
         ))
     })?;
     while let Some(entry) = entries.next_entry().await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to read local artwork entry in '{}' for '{}': ",
+            "failed to read local artwork entry in '{}' for '{}'",
             book_dir.display(),
             book_url,
         ))
     })? {
         let file_type = entry.file_type().await.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to inspect local artwork entry in '{}' for '{}': ",
+                "failed to inspect local artwork entry in '{}' for '{}'",
                 book_dir.display(),
                 book_url,
             ))
@@ -267,7 +267,7 @@ pub(super) async fn load_book_local_artwork_urls(
             .strip_prefix(library_root)
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to relativize local artwork '{}' against library root '{}': ",
+                    "failed to relativize local artwork '{}' against library root '{}'",
                     path.display(),
                     library_root.display(),
                 ))
@@ -288,21 +288,21 @@ pub(super) async fn load_series_local_artwork_urls(
     let mut artwork_urls = Vec::new();
     let mut entries = fs::read_dir(&series_path).await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to scan series local artwork directory '{}' for '{}': ",
+            "failed to scan series local artwork directory '{}' for '{}'",
             series_path.display(),
             series_url,
         ))
     })?;
     while let Some(entry) = entries.next_entry().await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to read series local artwork entry in '{}' for '{}': ",
+            "failed to read series local artwork entry in '{}' for '{}'",
             series_path.display(),
             series_url,
         ))
     })? {
         let file_type = entry.file_type().await.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to inspect series local artwork entry in '{}' for '{}': ",
+                "failed to inspect series local artwork entry in '{}' for '{}'",
                 series_path.display(),
                 series_url,
             ))
@@ -322,7 +322,7 @@ pub(super) async fn load_series_local_artwork_urls(
             .strip_prefix(library_root)
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to relativize series local artwork '{}' against library root '{}': ",
+                    "failed to relativize series local artwork '{}' against library root '{}'",
                     path.display(),
                     library_root.display(),
                 ))
@@ -374,7 +374,7 @@ pub(super) async fn import_book_local_artwork_thumbnail(
     let artwork_path = library_root.join(artwork_url);
     let metadata = tokio::fs::metadata(&artwork_path).await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to read local artwork '{}' for book '{}': ",
+            "failed to read local artwork '{}' for book '{}'",
             artwork_path.display(),
             book_id,
         ))
@@ -390,7 +390,7 @@ pub(super) async fn import_book_local_artwork_thumbnail(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to remove duplicated sidecar thumbnail '{}' for '{}': ",
+                "failed to remove duplicated sidecar thumbnail '{}' for '{}'",
                 artwork_url, book_id,
             ))
         })?;
@@ -413,7 +413,7 @@ pub(super) async fn import_book_local_artwork_thumbnail(
     .await
     .map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to insert local artwork '{}' for book '{}': ",
+            "failed to insert local artwork '{}' for book '{}'",
             artwork_url, book_id,
         ))
     })?;
@@ -427,7 +427,7 @@ pub(super) async fn import_book_local_artwork_thumbnail(
         .execute(pool)
         .await
         .map_err(|error| { anyhow::anyhow!(error).context( format!(
-                "failed to mark local artwork '{}' as selected for '{}': ",
+                "failed to mark local artwork '{}' as selected for '{}'",
                 artwork_url, book_id,
             ))
         })?;
@@ -446,7 +446,7 @@ pub(super) async fn import_series_local_artwork_thumbnail(
     let artwork_path = library_root.join(artwork_url);
     let metadata = tokio::fs::metadata(&artwork_path).await.map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to read series local artwork '{}' for '{}': ",
+            "failed to read series local artwork '{}' for '{}'",
             artwork_path.display(),
             series_id,
         ))
@@ -462,7 +462,7 @@ pub(super) async fn import_series_local_artwork_thumbnail(
         .await
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to remove duplicated series sidecar thumbnail '{}' for '{}': ",
+                "failed to remove duplicated series sidecar thumbnail '{}' for '{}'",
                 artwork_url, series_id,
             ))
         })?;
@@ -485,7 +485,7 @@ pub(super) async fn import_series_local_artwork_thumbnail(
     .await
     .map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to insert series local artwork '{}' for '{}': ",
+            "failed to insert series local artwork '{}' for '{}'",
             artwork_url, series_id,
         ))
     })?;
@@ -499,7 +499,7 @@ pub(super) async fn import_series_local_artwork_thumbnail(
         .execute(pool)
         .await
         .map_err(|error| { anyhow::anyhow!(error).context( format!(
-                "failed to mark series local artwork '{}' as selected for '{}': ",
+                "failed to mark series local artwork '{}' as selected for '{}'",
                 artwork_url, series_id,
             ))
         })?;
@@ -523,7 +523,7 @@ async fn should_select_book_local_artwork(
     .bind(book_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| anyhow::anyhow!(error).context( format!("failed to load selected thumbnail for '{}': ", book_id)))?;
+    .map_err(|error| anyhow::anyhow!(error).context( format!("failed to load selected thumbnail for '{}'", book_id)))?;
 
     let thumbnail_type =
         selected_row.map(|row| parse_thumbnail_type(&row.get::<String, _>("TYPE")));
@@ -546,7 +546,7 @@ async fn should_select_series_local_artwork(
     .fetch_optional(pool)
     .await
     .map_err(|error| { anyhow::anyhow!(error).context( format!(
-            "failed to load selected series thumbnail for '{}': ",
+            "failed to load selected series thumbnail for '{}'",
             series_id
         ))
     })?;

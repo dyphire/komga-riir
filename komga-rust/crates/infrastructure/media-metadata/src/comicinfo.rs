@@ -307,14 +307,12 @@ pub fn load_comicinfo_bytes_from_path(
 
 fn load_comicinfo_bytes_from_zip(path: &Path) -> anyhow::Result<Option<Vec<u8>>> {
     let file = File::open(path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!(
-            "failed to open ComicInfo archive '{}': ",
+        anyhow::anyhow!(error).context(format!("failed to open ComicInfo archive '{}",
             path.display()
         ))
     })?;
     let mut archive = ZipArchive::new(file).map_err(|error| {
-        anyhow::anyhow!(error).context(format!(
-            "failed to read ComicInfo archive '{}': ",
+        anyhow::anyhow!(error).context(format!("failed to read ComicInfo archive '{}",
             path.display()
         ))
     })?;

@@ -78,7 +78,7 @@ async fn load_barcode_candidate_image_bytes(
             .map(Some)
             .map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "failed to read single-image barcode candidate '{}' for '{}': ",
+                    "failed to read single-image barcode candidate '{}' for '{}'",
                     media.file_path.display(),
                     book_id,
                 ))
@@ -108,7 +108,7 @@ fn render_pdf_page_image_for_barcode(
         .load_pdf_from_file(&media.file_path, None)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to load PDF for barcode refresh '{}': ",
+                "failed to load PDF for barcode refresh '{}'",
                 media.file_path.display()
             ))
         })?;
@@ -117,7 +117,7 @@ fn render_pdf_page_image_for_barcode(
         .get(i32::try_from(page_number.saturating_sub(1)).unwrap_or(i32::MAX))
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to load PDF page {page_number} for barcode refresh '{}': ",
+                "failed to load PDF page {page_number} for barcode refresh '{}'",
                 media.file_path.display()
             ))
         })?;
@@ -130,14 +130,14 @@ fn render_pdf_page_image_for_barcode(
         )
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to render PDF page {page_number} for barcode refresh '{}': ",
+                "failed to render PDF page {page_number} for barcode refresh '{}'",
                 media.file_path.display()
             ))
         })?
         .as_image()
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to convert PDF barcode render to image '{}': ",
+                "failed to convert PDF barcode render to image '{}'",
                 media.file_path.display()
             ))
         })?
@@ -148,7 +148,7 @@ fn render_pdf_page_image_for_barcode(
         .write_to(&mut output, image::ImageFormat::Png)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to encode rendered PDF barcode candidate '{}': ",
+                "failed to encode rendered PDF barcode candidate '{}'",
                 media.file_path.display()
             ))
         })?;

@@ -781,7 +781,7 @@ fn import_book_url_for_library_root(
         .map(|relative| relative.to_string_lossy().replace('\\', "/"))
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "derive imported book url '{}' from library root '{}': ",
+                "derive imported book url '{}' from library root '{}'",
                 destination_file.display(),
                 library_root.display()
             ))

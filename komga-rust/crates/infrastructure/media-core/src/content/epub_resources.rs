@@ -70,7 +70,7 @@ async fn read_epub_resource_from_archive_path(
             }
         };
         let mut archive = ZipArchive::new(file).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("open EPUB archive '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("open EPUB archive '{}'", path.display()))
         })?;
         read_zip_entry_bytes_result(&mut archive, &resource_name, &path)
     })
@@ -209,7 +209,7 @@ pub async fn load_epub_cover_bytes(
             }
         };
         let mut archive = ZipArchive::new(file).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("open EPUB archive '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("open EPUB archive '{}'", path.display()))
         })?;
         let Some(container_xml) =
             read_zip_entry_bytes_normalized_result(&mut archive, "META-INF/container.xml", &path)?
@@ -333,13 +333,13 @@ pub async fn load_epub_package_document(
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<Vec<u8>>> {
         let file = File::open(&path).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to open EPUB package source '{}': ",
+                "failed to open EPUB package source '{}'",
                 path.display()
             ))
         })?;
         let mut archive = ZipArchive::new(file).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "failed to open EPUB package archive '{}': ",
+                "failed to open EPUB package archive '{}'",
                 path.display()
             ))
         })?;
@@ -386,10 +386,10 @@ where
     let display_path = path.display().to_string();
     tokio::task::spawn_blocking(move || {
         let bytes = std::fs::read(&path).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("read MOBI source '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("read MOBI source '{}'", path.display()))
         })?;
         let publication = normalize_mobi(&bytes).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("normalize MOBI source '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("normalize MOBI source '{}'", path.display()))
         })?;
         operation(publication)
     })
@@ -444,7 +444,7 @@ fn read_zip_entry_bytes_result<R: Read + Seek>(
     let mut bytes = Vec::new();
     entry.read_to_end(&mut bytes).map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "failed to read EPUB archive entry '{entry_name}' from '{}': ",
+            "failed to read EPUB archive entry '{entry_name}' from '{}'",
             archive_path.display()
         ))
     })?;

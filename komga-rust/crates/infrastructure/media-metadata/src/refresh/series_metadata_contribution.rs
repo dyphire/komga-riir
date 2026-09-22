@@ -250,7 +250,7 @@ pub(super) async fn upsert(
     .await
     .with_context(|| {
         format!(
-            "failed to persist {} series metadata contribution for '{}': ",
+            "failed to persist {} series metadata contribution for '{}'",
             provider.persisted_name(),
             source.book_id
         )

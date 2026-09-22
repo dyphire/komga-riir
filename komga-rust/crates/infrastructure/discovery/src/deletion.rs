@@ -327,7 +327,7 @@ async fn resort_empty_trash_affected_series(
                 .execute(&mut **tx)
                 .await
                 .map_err(|error| {
-                    anyhow::anyhow!(error).context(format!("update book order '{}': ", book.id))
+                    anyhow::anyhow!(error).context(format!("update book order '{}'", book.id))
                 })?;
             }
 
@@ -359,7 +359,7 @@ async fn resort_empty_trash_affected_series(
                 .await
                 .map_err(|error| {
                     anyhow::anyhow!(error)
-                        .context(format!("update book metadata order '{}': ", book.id))
+                        .context(format!("update book metadata order '{}'", book.id))
                 })?;
             }
         }

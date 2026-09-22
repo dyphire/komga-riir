@@ -153,7 +153,7 @@ pub fn load_generated_pdf_page_rows(
         return Ok(vec![]);
     }
     let document = PdfDocument::load(&media.file_path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("open pdf '{}': ", media.file_path.display()))
+        anyhow::anyhow!(error).context(format!("open pdf '{}'", media.file_path.display()))
     })?;
     Ok((1..=page_count)
         .map(|number| {
@@ -218,7 +218,7 @@ fn render_pdf_page_blocking(
         Err(PdfiumError::PageIndexOutOfBounds) => return Ok(None),
         Err(error) => {
             return Err(anyhow::anyhow!(error).context(format!(
-                "load pdf page {page_number} from '{}': ",
+                "load pdf page {page_number} from '{}'",
                 media.file_path.display()
             )))
         }
@@ -245,7 +245,7 @@ fn render_pdf_page_blocking(
         )
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "render pdf page {page_number} from '{}': ",
+                "render pdf page {page_number} from '{}'",
                 media.file_path.display()
             ))
         })?
@@ -263,7 +263,7 @@ fn render_pdf_page_blocking(
         &image,
         output_format,
         &format!(
-            "encode pdf page {page_number} page from '{}': ",
+            "encode pdf page {page_number} page from '{}'",
             media.file_path.display()
         ),
     )
@@ -278,7 +278,7 @@ pub fn read_pdf_page_as_single_page_pdf(
         return Ok(None);
     }
     let mut document = PdfDocument::load(&media.file_path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("open pdf '{}': ", media.file_path.display()))
+        anyhow::anyhow!(error).context(format!("open pdf '{}'", media.file_path.display()))
     })?;
     let pages = document.get_pages();
     if !pages.contains_key(&(page_number as u32)) {
@@ -294,7 +294,7 @@ pub fn read_pdf_page_as_single_page_pdf(
     let mut bytes = Vec::new();
     document.save_to(&mut bytes).map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "save pdf page {page_number} from '{}': ",
+            "save pdf page {page_number} from '{}'",
             media.file_path.display()
         ))
     })?;
@@ -327,7 +327,7 @@ fn render_pdf_page_at_size(
         )
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "load pdf page {page_number} from '{}': ",
+                "load pdf page {page_number} from '{}'",
                 media.file_path.display()
             ))
         })?;
@@ -339,7 +339,7 @@ fn render_pdf_page_at_size(
         )
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "render pdf page {page_number} from '{}': ",
+                "render pdf page {page_number} from '{}'",
                 media.file_path.display()
             ))
         })?
@@ -357,7 +357,7 @@ fn render_pdf_page_at_size(
         &image,
         output_format,
         &format!(
-            "encode pdf page {page_number} {output_description} from '{}': ",
+            "encode pdf page {page_number} {output_description} from '{}'",
             media.file_path.display()
         ),
     )
@@ -549,7 +549,7 @@ async fn read_zip_archive_page_bytes(
             }
         };
         let mut archive = ZipArchive::new(file).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("read zip archive '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("read zip archive '{}'", path.display()))
         })?;
         if !page_file_name.is_empty()
             && let Ok(mut entry) = archive.by_name(&page_file_name)
@@ -559,7 +559,7 @@ async fn read_zip_archive_page_bytes(
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read zip archive entry '{}' from '{}': ",
+                    "read zip archive entry '{}' from '{}'",
                     page_file_name,
                     path.display()
                 ))
@@ -573,7 +573,7 @@ async fn read_zip_archive_page_bytes(
         for index in 0..archive.len() {
             let entry = archive.by_index(index).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read zip archive entry #{index} from '{}': ",
+                    "read zip archive entry #{index} from '{}'",
                     path.display()
                 ))
             })?;
@@ -581,7 +581,7 @@ async fn read_zip_archive_page_bytes(
                 .name()
                 .map_err(|error| {
                     anyhow::anyhow!(error).context(format!(
-                        "read zip archive entry #{index} name from '{}': ",
+                        "read zip archive entry #{index} name from '{}'",
                         path.display()
                     ))
                 })?
@@ -597,14 +597,14 @@ async fn read_zip_archive_page_bytes(
         };
         let mut entry = archive.by_name(entry_name).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read zip archive entry '{entry_name}' from '{}': ",
+                "read zip archive entry '{entry_name}' from '{}'",
                 path.display()
             ))
         })?;
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read zip archive entry '{entry_name}' from '{}': ",
+                "read zip archive entry '{entry_name}' from '{}'",
                 path.display()
             ))
         })?;
@@ -630,13 +630,13 @@ async fn load_zip_archive_page_rows(
             }
         };
         let mut archive = ZipArchive::new(file).map_err(|error| {
-            anyhow::anyhow!(error).context(format!("read zip archive '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("read zip archive '{}'", path.display()))
         })?;
         let mut rows = Vec::new();
         for index in 0..archive.len() {
             let entry = archive.by_index(index).map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "read zip archive entry #{index} from '{}': ",
+                    "read zip archive entry #{index} from '{}'",
                     path.display()
                 ))
             })?;
@@ -644,7 +644,7 @@ async fn load_zip_archive_page_rows(
                 .name()
                 .map_err(|error| {
                     anyhow::anyhow!(error).context(format!(
-                        "read zip archive entry #{index} name from '{}': ",
+                        "read zip archive entry #{index} name from '{}'",
                         path.display()
                     ))
                 })?
@@ -677,7 +677,7 @@ fn load_rar_archive_page_rows(
     let rows = list_rar_entries(file_path)
         .map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read rar archive '{}': ",
+                "read rar archive '{}'",
                 file_path.display()
             ))
         })?
@@ -749,7 +749,7 @@ pub async fn read_media_file_size(path: &Path) -> anyhow::Result<Option<i64>> {
     match tokio::fs::metadata(path).await {
         Ok(value) if value.is_file() => i64::try_from(value.len()).map(Some).map_err(|error| {
             anyhow::anyhow!(error)
-                .context(format!("convert media file size '{}': ", path.display()))
+                .context(format!("convert media file size '{}'", path.display()))
         }),
         Ok(_) => Err(anyhow::anyhow!(format!(
             "media path '{}' is not a file",
@@ -771,7 +771,7 @@ pub async fn read_media_image_dimensions(
     };
     let image = image::load_from_memory(&bytes).map_err(|error| {
         anyhow::anyhow!(error).context(format!(
-            "decode media image dimensions '{}': ",
+            "decode media image dimensions '{}'",
             path.display()
         ))
     })?;

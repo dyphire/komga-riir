@@ -19,7 +19,7 @@ impl RiirDatabase {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "failed to create RIIR database directory '{}': ",
+                    "failed to create RIIR database directory '{}'",
                     parent.display()
                 )
             })?;
@@ -31,14 +31,14 @@ impl RiirDatabase {
     async fn open_once(path: &Path) -> anyhow::Result<Self> {
         let write_pool = connect_write_pool(path).await.with_context(|| {
             format!(
-                "failed to open RIIR database write pool '{}': ",
+                "failed to open RIIR database write pool '{}'",
                 path.display()
             )
         })?;
         if let Err(error) = MIGRATOR.run(&write_pool).await {
             release_riir_database_pools(path).await;
             return Err(anyhow::Error::new(error).context(format!(
-                "failed to migrate RIIR database '{}': ",
+                "failed to migrate RIIR database '{}'",
                 path.display()
             )));
         }
@@ -47,7 +47,7 @@ impl RiirDatabase {
             Err(error) => {
                 release_riir_database_pools(path).await;
                 return Err(anyhow::Error::new(error).context(format!(
-                    "failed to open RIIR database read pool '{}': ",
+                    "failed to open RIIR database read pool '{}'",
                     path.display()
                 )));
             }

@@ -70,7 +70,9 @@ impl TaskProcessingError {
 
     pub fn runtime(message: impl std::fmt::Display) -> Self {
         Self {
-            message: message.to_string(),
+            // `{:#}` renders the full anyhow error chain (context: source: ...),
+            // while `{}` keeps only the outermost context and drops the root cause.
+            message: format!("{message:#}"),
         }
     }
 }

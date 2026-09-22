@@ -532,14 +532,14 @@ pub(crate) fn transient_book_page_content(
         })?;
         let mut entry = archive.by_name(page.file_name.as_str()).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read transient archive entry '{}' from '{}': ",
+                "read transient archive entry '{}' from '{}'",
                 page.file_name, path
             ))
         })?;
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes).map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read transient archive entry '{}' bytes from '{}': ",
+                "read transient archive entry '{}' bytes from '{}'",
                 page.file_name, path
             ))
         })?;
@@ -630,19 +630,19 @@ fn collect_transient_book_entries(
     entries: &mut Vec<TransientBookScanEntry>,
 ) -> anyhow::Result<()> {
     let directory_entries = fs::read_dir(path).map_err(|error| {
-        anyhow::anyhow!(error).context(format!("read transient directory '{}': ", path.display()))
+        anyhow::anyhow!(error).context(format!("read transient directory '{}'", path.display()))
     })?;
 
     for entry in directory_entries {
         let entry = entry.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read transient directory entry from '{}': ",
+                "read transient directory entry from '{}'",
                 path.display()
             ))
         })?;
         let file_type = entry.file_type().map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read transient directory entry type '{}': ",
+                "read transient directory entry type '{}'",
                 entry.path().display()
             ))
         })?;

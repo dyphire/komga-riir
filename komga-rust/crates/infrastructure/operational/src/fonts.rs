@@ -42,13 +42,13 @@ fn list_font_families(fonts_directory: &Path) -> anyhow::Result<Vec<String>> {
     for entry in entries {
         let entry = entry.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read fonts directory entry '{}': ",
+                "read fonts directory entry '{}'",
                 fonts_directory.display()
             ))
         })?;
         let file_type = entry.file_type().map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read fonts directory entry type '{}': ",
+                "read fonts directory entry type '{}'",
                 entry.path().display()
             ))
         })?;
@@ -96,13 +96,13 @@ fn load_font_family_css(
     for entry in entries {
         let entry = entry.map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read font family directory entry '{}': ",
+                "read font family directory entry '{}'",
                 family_dir.display()
             ))
         })?;
         let file_type = entry.file_type().map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read font family directory entry type '{}': ",
+                "read font family directory entry type '{}'",
                 entry.path().display()
             ))
         })?;

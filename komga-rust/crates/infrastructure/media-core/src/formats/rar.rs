@@ -38,13 +38,13 @@ pub struct RarEntryBytesRecord {
 
 pub fn list_rar_entries(path: &Path) -> anyhow::Result<Vec<RarEntryRecord>> {
     let mut archive = Archive::new(path).open_for_listing().map_err(|error| {
-        anyhow::anyhow!(error).context(format!("open rar for listing '{}': ", path.display()))
+        anyhow::anyhow!(error).context(format!("open rar for listing '{}'", path.display()))
     })?;
 
     let mut entries = Vec::new();
     for entry in archive.by_ref() {
         let entry = entry.map_err(|error| {
-            anyhow::anyhow!(error).context(format!("read rar entry '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("read rar entry '{}'", path.display()))
         })?;
         if entry.is_directory() {
             continue;
@@ -61,13 +61,13 @@ pub fn list_rar_entries(path: &Path) -> anyhow::Result<Vec<RarEntryRecord>> {
 
 pub fn read_rar_entries_bytes(path: &Path) -> anyhow::Result<Vec<RarEntryBytesRecord>> {
     let mut archive = Archive::new(path).open_for_processing().map_err(|error| {
-        anyhow::anyhow!(error).context(format!("open rar for processing '{}': ", path.display()))
+        anyhow::anyhow!(error).context(format!("open rar for processing '{}'", path.display()))
     })?;
 
     let mut entries = Vec::new();
     loop {
         let Some(header) = archive.read_header().map_err(|error| {
-            anyhow::anyhow!(error).context(format!("read rar header '{}': ", path.display()))
+            anyhow::anyhow!(error).context(format!("read rar header '{}'", path.display()))
         })?
         else {
             break;
@@ -78,7 +78,7 @@ pub fn read_rar_entries_bytes(path: &Path) -> anyhow::Result<Vec<RarEntryBytesRe
         if header.entry().is_directory() {
             archive = header.skip().map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "skip rar entry '{file_name}' in '{}': ",
+                    "skip rar entry '{file_name}' in '{}'",
                     path.display()
                 ))
             })?;
@@ -87,7 +87,7 @@ pub fn read_rar_entries_bytes(path: &Path) -> anyhow::Result<Vec<RarEntryBytesRe
 
         let (bytes, rest) = header.read().map_err(|error| {
             anyhow::anyhow!(error).context(format!(
-                "read rar entry '{}' from '{}': ",
+                "read rar entry '{}' from '{}'",
                 file_name,
                 path.display()
             ))
@@ -107,12 +107,12 @@ pub fn read_rar_entry_bytes(path: &Path, entry_name: &str) -> anyhow::Result<Opt
     let matched_bytes = {
         let mut archive = Archive::new(path).open_for_processing().map_err(|error| {
             anyhow::anyhow!(error)
-                .context(format!("open rar for processing '{}': ", path.display()))
+                .context(format!("open rar for processing '{}'", path.display()))
         })?;
 
         loop {
             let Some(header) = archive.read_header().map_err(|error| {
-                anyhow::anyhow!(error).context(format!("read rar header '{}': ", path.display()))
+                anyhow::anyhow!(error).context(format!("read rar header '{}'", path.display()))
             })?
             else {
                 break None;
@@ -122,7 +122,7 @@ pub fn read_rar_entry_bytes(path: &Path, entry_name: &str) -> anyhow::Result<Opt
             if current_name == entry_name {
                 let (data, rest) = header.read().map_err(|error| {
                     anyhow::anyhow!(error).context(format!(
-                        "read rar entry '{}' from '{}': ",
+                        "read rar entry '{}' from '{}'",
                         entry_name,
                         path.display()
                     ))
@@ -133,7 +133,7 @@ pub fn read_rar_entry_bytes(path: &Path, entry_name: &str) -> anyhow::Result<Opt
 
             archive = header.skip().map_err(|error| {
                 anyhow::anyhow!(error).context(format!(
-                    "skip rar entry '{}' in '{}': ",
+                    "skip rar entry '{}' in '{}'",
                     current_name,
                     path.display()
                 ))
