@@ -5,6 +5,7 @@ use super::persistence::{
 use crate::MediaLibraryJobContext;
 use crate::analysis::analyze_book_media_file;
 use crate::maintenance::updates::adjust_analyzed_book_read_progress;
+use komga_application::runtime_sse::RuntimeSseEvent;
 use komga_application::task_processing::TaskProcessingError;
 use komga_domain::discovery::MediaStatus;
 use komga_infrastructure_base::resolve_library_item_path;
@@ -92,6 +93,17 @@ pub async fn analyze_book(
     )
     .await
     .map_err(TaskProcessingError::runtime)?;
+
+    // Notify clients that the book media changed, mirroring Kotlin's
+    // BookLifecycle.analyzeAndPersist which unconditionally publishes a
+    // BookUpdated event after persisting the analysis.
+    runtime
+        .runtime_events()
+        .register(RuntimeSseEvent::BookChanged {
+            book_id: book_id.clone(),
+            series_id: input.series_id.clone(),
+            library_id: input.library_id.clone(),
+        });
 
     Ok(AnalyzeBookOutcome {
         series_id: input.series_id,

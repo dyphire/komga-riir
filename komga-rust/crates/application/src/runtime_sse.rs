@@ -165,6 +165,7 @@ impl RuntimeSseEventStore {
             .expect("runtime sse event state lock should not be poisoned");
         state.last_event_id += 1;
         let event_id = state.last_event_id;
+        tracing::debug!(event_id, ?event, "runtime sse event registered");
         state.events.push_back(RuntimeSseEventRecord {
             id: event_id,
             event,

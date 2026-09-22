@@ -8,6 +8,7 @@ pub(super) struct BookAnalysisInput {
     pub(super) root: String,
     pub(super) analyze_dimensions: bool,
     pub(super) series_id: String,
+    pub(super) library_id: String,
     pub(super) previous_media_status: Option<MediaStatus>,
     pub(super) previous_page_count: i64,
 }
@@ -53,6 +54,7 @@ pub(super) async fn analyze_book_input(
              l.ANALYZE_DIMENSIONS AS ANALYZE_DIMENSIONS,
              COALESCE(m.STATUS, '') AS PREVIOUS_MEDIA_STATUS,
              COALESCE(m.PAGE_COUNT, 0) AS PREVIOUS_PAGE_COUNT,
+             l.ID AS LIBRARY_ID,
              l.ROOT AS ROOT
             FROM BOOK b
             JOIN LIBRARY l ON l.ID = b.LIBRARY_ID
@@ -71,6 +73,7 @@ pub(super) async fn analyze_book_input(
         root: sqlx::Row::get::<String, _>(&row, "ROOT"),
         analyze_dimensions: sqlx::Row::get::<bool, _>(&row, "ANALYZE_DIMENSIONS"),
         series_id: sqlx::Row::get::<String, _>(&row, "SERIES_ID"),
+        library_id: sqlx::Row::get::<String, _>(&row, "LIBRARY_ID"),
         previous_media_status: MediaStatus::parse(
             sqlx::Row::get::<String, _>(&row, "PREVIOUS_MEDIA_STATUS").as_str(),
         ),
