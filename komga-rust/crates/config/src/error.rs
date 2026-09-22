@@ -8,6 +8,7 @@ pub enum ConfigError {
     InvalidRuntimeProfile(String),
     InvalidPlatformProfile(String),
     InvalidBoolean(String),
+    InvalidDuration(String),
     InvalidContextPath(String),
     InvalidConfigSource(String),
     RiirStoragePathCollision {
@@ -38,6 +39,12 @@ impl std::fmt::Display for ConfigError {
             }
             Self::InvalidBoolean(value) => {
                 write!(f, "invalid isolated write boolean value: {value}")
+            }
+            Self::InvalidDuration(value) => {
+                write!(
+                    f,
+                    "invalid duration {value:?}: expected a number followed by ms/s/m/h/d"
+                )
             }
             Self::InvalidContextPath(_) => write!(
                 f,

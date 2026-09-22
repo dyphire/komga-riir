@@ -12,7 +12,7 @@ mod task_queue;
 pub use crate::discovery_auth::state::DiscoveryAuthState;
 pub use app_state::{
     HttpAppState, HttpServices, OperationalState, ReadProgressState, ShutdownTrigger,
-    SseConnectionState,
+    SseConnectionState, WebUiDirState,
 };
 pub use core::{
     AuthDatabaseState, OAuth2ClientConfig, OperationalBuildMetadata, RuntimeProfile, RuntimeState,

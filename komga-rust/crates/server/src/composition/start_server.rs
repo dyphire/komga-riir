@@ -117,12 +117,21 @@ pub(crate) async fn serve(
     )
     .await?;
     let lifecycle = parts.lifecycle.clone();
-    let router = build_router_from_parts(
+    let app = compose_http_runtime(
         &config,
-        parts,
+        parts.http,
         Some(shutdown_tx.clone()),
         startup_timing.clone(),
-    )?;
+    );
+    if config.webui_auto_update && config.webui_dir.is_some() {
+        crate::webui_updater::WebuiUpdater::start(
+            app.operational.webui_dir.clone(),
+            config.config_dir.clone().unwrap_or_default(),
+            config.webui_update_interval,
+        );
+    }
+    let router = build_http_router(app);
+    let router = lifecycle.clone().attach(router);
     emit_server_bind_event(&listener);
 
     serve_router_with_shutdown_timeout(

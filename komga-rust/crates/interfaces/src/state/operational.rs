@@ -31,6 +31,7 @@ pub struct OperationalApiState {
     pub(crate) page_hash_control: Arc<PageHashService>,
     pub(crate) syncpoints: Arc<dyn SyncpointPort>,
     pub(crate) transient_books: Arc<TransientBookService>,
+    pub(crate) webui_dir: super::app_state::WebUiDirState,
 }
 
 impl FromRef<Arc<HttpAppState>> for OperationalApiState {
@@ -51,6 +52,7 @@ impl FromRef<Arc<HttpAppState>> for OperationalApiState {
             page_hash_control: app.services.page_hash_control.clone(),
             syncpoints: app.services.syncpoints.clone(),
             transient_books: app.services.transient_books.clone(),
+            webui_dir: app.operational.webui_dir.clone(),
         }
     }
 }

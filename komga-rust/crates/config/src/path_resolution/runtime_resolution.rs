@@ -1,14 +1,16 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use config::Config as LayeredConfig;
 
 use super::super::cli_args::{
-    CONFIG_DIR_ENV, MODE_ENV, PLATFORM_PROFILE_ENV, RUNTIME_PROFILE_ENV, RuntimeCli, SORT_LOCALE_ENV,
-    SPRING_PROFILES_ACTIVE_ENV,
+    CONFIG_DIR_ENV, MODE_ENV, PLATFORM_PROFILE_ENV, RUNTIME_PROFILE_ENV, RuntimeCli,
+    SORT_LOCALE_ENV, SPRING_PROFILES_ACTIVE_ENV,
 };
 use super::super::env_config::{
-    AdminActionConfig, DEFAULT_SESSION_MAX_INACTIVE_SECONDS, RuntimeConfig,
+    AdminActionConfig, DEFAULT_SESSION_MAX_INACTIVE_SECONDS, DEFAULT_WEBUI_UPDATE_INTERVAL,
+    RuntimeConfig,
 };
 use super::super::error::ConfigError;
 use super::super::profile::{DEFAULT_CONFIG_DIR, PlatformProfile, RuntimeMode, RuntimeProfile};
@@ -139,23 +141,77 @@ fn resolve_session_max_inactive_seconds(
         .unwrap_or(DEFAULT_SESSION_MAX_INACTIVE_SECONDS)
 }
 
-fn resolve_sort_locale(
-    layered: &LayeredConfig,
-    env: &BTreeMap<String, String>,
-) -> Option<String> {
+fn resolve_sort_locale(layered: &LayeredConfig, env: &BTreeMap<String, String>) -> Option<String> {
     env.get(SORT_LOCALE_ENV)
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .or_else(|| {
             read_string(
                 layered,
-                &[
-                    "komga.sortLocale",
-                    "komga.sort-locale",
-                    "komga.sort_locale",
-                ],
+                &["komga.sortLocale", "komga.sort-locale", "komga.sort_locale"],
             )
         })
+}
+
+fn resolve_webui_dir(layered: &LayeredConfig, env: &BTreeMap<String, String>) -> Option<PathBuf> {
+    env.get("KOMGA_WEBUI_DIR")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| read_string(layered, &["webui.dir", "webui-dir", "webui_dir"]))
+        .map(PathBuf::from)
+}
+
+fn parse_webui_duration(value: &str) -> Result<Duration, ConfigError> {
+    let value = value.trim();
+    for (suffix, millis) in [
+        ("ms", 1u64),
+        ("s", 1_000),
+        ("m", 60_000),
+        ("h", 3_600_000),
+        ("d", 86_400_000),
+    ] {
+        if let Some(number) = value.strip_suffix(suffix) {
+            let parsed: u64 = number
+                .trim()
+                .parse()
+                .map_err(|_| ConfigError::InvalidDuration(value.to_string()))?;
+            return Ok(Duration::from_millis(parsed * millis));
+        }
+    }
+    Err(ConfigError::InvalidDuration(value.to_string()))
+}
+
+fn resolve_webui_auto_update(
+    layered: &LayeredConfig,
+    env: &BTreeMap<String, String>,
+) -> Result<bool, ConfigError> {
+    resolve_config_bool(
+        layered,
+        env,
+        "KOMGA_WEBUI_AUTOUPDATE",
+        &["webui.auto-update", "webui.autoUpdate", "webui.auto_update"],
+        false,
+    )
+}
+
+fn resolve_webui_update_interval(
+    layered: &LayeredConfig,
+    env: &BTreeMap<String, String>,
+) -> Result<Duration, ConfigError> {
+    if let Some(value) = env.get("KOMGA_WEBUI_UPDATEINTERVAL") {
+        return parse_webui_duration(value);
+    }
+    Ok(read_string(
+        layered,
+        &[
+            "webui.update-interval",
+            "webui.updateInterval",
+            "webui.update_interval",
+        ],
+    )
+    .map(|value| parse_webui_duration(&value))
+    .transpose()?
+    .unwrap_or(DEFAULT_WEBUI_UPDATE_INTERVAL))
 }
 
 struct ResolvedConfigInputs {
@@ -272,6 +328,9 @@ pub(crate) fn resolve_with_env(
     let oidc_email_verification = resolve_oidc_email_verification(&layered, env)?;
     let session_max_inactive_seconds = resolve_session_max_inactive_seconds(&layered, env);
     let sort_locale = resolve_sort_locale(&layered, env);
+    let webui_dir = resolve_webui_dir(&layered, env);
+    let webui_auto_update = resolve_webui_auto_update(&layered, env)?;
+    let webui_update_interval = resolve_webui_update_interval(&layered, env)?;
 
     let writer_ownership_policy = resolve_writer_ownership_policy_for_startup_slice(cli, env)?;
     let demo_mode = active_profiles_contain_demo(&layered, env);
@@ -301,6 +360,9 @@ pub(crate) fn resolve_with_env(
         session_max_inactive_seconds,
         task_pool_size: 1,
         sort_locale,
+        webui_dir,
+        webui_auto_update,
+        webui_update_interval,
     };
 
     config.validate_single_writer_storage_ownership(env)?;
@@ -331,7 +393,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use crate::cli_args::RuntimeCli;
     use crate::error::ConfigError;
@@ -417,5 +479,122 @@ mod tests {
             assert!(error.to_string().contains(expected_setting));
             assert!(!riir_path.exists(), "validation must not open the database");
         }
+    }
+
+    #[test]
+    fn webui_dir_resolves_from_environment() {
+        let config_dir = TempConfigDir::new("webui-dir-env");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let env = BTreeMap::from([(
+            "KOMGA_WEBUI_DIR".to_string(),
+            r"C:\frontend\dist".to_string(),
+        )]);
+        let config = resolve_with_env(&cli, &env).expect("config should resolve");
+        assert_eq!(config.webui_dir, Some(PathBuf::from(r"C:\frontend\dist")),);
+    }
+
+    #[test]
+    fn webui_dir_resolves_from_application_config() {
+        let config_dir = TempConfigDir::new("webui-dir-yaml");
+        fs::write(
+            config_dir.0.join("application.yml"),
+            "webui:\n  dir: ./kmweb/dist\n",
+        )
+        .expect("application config should be written");
+
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let config = resolve_with_env(&cli, &BTreeMap::new()).expect("config should resolve");
+        assert_eq!(config.webui_dir, Some(PathBuf::from("./kmweb/dist")));
+    }
+
+    #[test]
+    fn webui_dir_defaults_to_none() {
+        let config_dir = TempConfigDir::new("webui-dir-default");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let config = resolve_with_env(&cli, &BTreeMap::new()).expect("config should resolve");
+        assert_eq!(config.webui_dir, None);
+        assert!(!config.webui_auto_update);
+        assert_eq!(config.webui_update_interval, Duration::from_secs(24 * 3600));
+    }
+
+    #[test]
+    fn webui_auto_update_resolves_from_environment() {
+        let config_dir = TempConfigDir::new("webui-autoupdate-env");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let env = BTreeMap::from([("KOMGA_WEBUI_AUTOUPDATE".to_string(), "true".to_string())]);
+        let config = resolve_with_env(&cli, &env).expect("config should resolve");
+        assert!(config.webui_auto_update);
+    }
+
+    #[test]
+    fn webui_auto_update_resolves_from_application_config() {
+        let config_dir = TempConfigDir::new("webui-autoupdate-yaml");
+        fs::write(
+            config_dir.0.join("application.yml"),
+            "webui:\n  auto-update: true\n",
+        )
+        .expect("application config should be written");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let config = resolve_with_env(&cli, &BTreeMap::new()).expect("config should resolve");
+        assert!(config.webui_auto_update);
+    }
+
+    #[test]
+    fn webui_update_interval_resolves_from_environment() {
+        let config_dir = TempConfigDir::new("webui-updateinterval-env");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let env = BTreeMap::from([("KOMGA_WEBUI_UPDATEINTERVAL".to_string(), "30m".to_string())]);
+        let config = resolve_with_env(&cli, &env).expect("config should resolve");
+        assert_eq!(config.webui_update_interval, Duration::from_secs(30 * 60));
+    }
+
+    #[test]
+    fn webui_update_interval_resolves_from_application_config() {
+        let config_dir = TempConfigDir::new("webui-updateinterval-yaml");
+        fs::write(
+            config_dir.0.join("application.yml"),
+            "webui:\n  update-interval: 6h\n",
+        )
+        .expect("application config should be written");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let config = resolve_with_env(&cli, &BTreeMap::new()).expect("config should resolve");
+        assert_eq!(config.webui_update_interval, Duration::from_secs(6 * 3600));
+    }
+
+    #[test]
+    fn webui_update_interval_rejects_invalid_value() {
+        let config_dir = TempConfigDir::new("webui-updateinterval-invalid");
+        let cli = RuntimeCli {
+            config_dir: Some(config_dir.0.clone()),
+            ..RuntimeCli::default()
+        };
+        let env = BTreeMap::from([(
+            "KOMGA_WEBUI_UPDATEINTERVAL".to_string(),
+            "every-now".to_string(),
+        )]);
+        let error = resolve_with_env(&cli, &env)
+            .expect_err("invalid duration should fail config resolution");
+        assert!(matches!(error, ConfigError::InvalidDuration(value) if value == "every-now"));
     }
 }

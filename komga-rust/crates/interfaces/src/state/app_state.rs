@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, RwLock};
 
 use komga_application::discovery::{
     AuthorFacetPort, BookDetailPort, BookSpecialListPort, CollectionSeriesPort,
@@ -110,6 +111,27 @@ impl ShutdownTrigger {
     }
 }
 
+/// The directory currently served as the web UI. Initially the configured webui.dir
+/// (or the updater's managed copy under <config-dir>/webui), swapped at runtime when
+/// the webui auto-updater installs a newer kmweb release. Reading is lock-free per
+/// request; writes are rare (startup + update installs).
+#[derive(Clone, Default)]
+pub struct WebUiDirState(Arc<RwLock<Option<PathBuf>>>);
+
+impl WebUiDirState {
+    pub fn new(dir: Option<PathBuf>) -> Self {
+        Self(Arc::new(RwLock::new(dir)))
+    }
+
+    pub fn get(&self) -> Option<PathBuf> {
+        self.0.read().expect("webui dir lock poisoned").clone()
+    }
+
+    pub fn set(&self, dir: Option<PathBuf>) {
+        *self.0.write().expect("webui dir lock poisoned") = dir;
+    }
+}
+
 #[derive(Clone)]
 pub struct OperationalState {
     pub runtime: RuntimeState,
@@ -120,6 +142,7 @@ pub struct OperationalState {
     pub oauth2_clients: Vec<OAuth2ClientConfig>,
     pub oauth2_account_creation: bool,
     pub oidc_email_verification: bool,
+    pub webui_dir: WebUiDirState,
     pub sse: SseConnectionState,
     pub shutdown_trigger: Option<ShutdownTrigger>,
 }

@@ -1,15 +1,16 @@
 use crate::contracts::common::MessageDto;
 use crate::request_urls::request_context_path;
 use axum::body::Bytes;
-use axum::extract::Path as AxumPath;
+use axum::extract::{Path as AxumPath, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, RwLock};
 
 use super::nextui_assets::NextUiAssets;
 use super::webui_assets::WebUiAssets;
+use crate::state::OperationalApiState;
 
 const RESOURCE_BASE_URL_TEMPLATE_MARKER: &str =
     concat!("/*[(${", "\"'\" + baseUrl + \"'\"", "})]*/ '/'",);
@@ -52,9 +53,16 @@ impl IndexHtmlCache {
     }
 }
 
-pub(crate) async fn webui_entrypoint(headers: HeaderMap) -> Response {
+pub(crate) async fn webui_entrypoint(
+    State(state): State<OperationalApiState>,
+    headers: HeaderMap,
+) -> Response {
     let resource_base_url = request_scoped_resource_base_url(&headers);
-    serve_webui_asset("", resource_base_url.as_str())
+    serve_webui_asset(
+        state.webui_dir.get().as_deref(),
+        "",
+        resource_base_url.as_str(),
+    )
 }
 
 pub(crate) async fn nextui_entrypoint(headers: HeaderMap) -> Response {
@@ -63,6 +71,7 @@ pub(crate) async fn nextui_entrypoint(headers: HeaderMap) -> Response {
 }
 
 pub(crate) async fn webui_asset(
+    State(state): State<OperationalApiState>,
     AxumPath(webui_path): AxumPath<String>,
     headers: HeaderMap,
 ) -> Response {
@@ -71,9 +80,22 @@ pub(crate) async fn webui_asset(
     }
     let resource_base_url = request_scoped_resource_base_url(&headers);
     if webui_path == "layers.css" || webui_path.starts_with("assets/") {
+        if let Some(dir) = state.webui_dir.get().as_deref()
+            && resolve_external_webui_asset_path(dir, webui_path.as_str()).is_some()
+        {
+            return serve_webui_asset(
+                state.webui_dir.get().as_deref(),
+                webui_path.as_str(),
+                resource_base_url.as_str(),
+            );
+        }
         return serve_nextui_asset(webui_path.as_str(), resource_base_url.as_str());
     }
-    serve_webui_asset(webui_path.as_str(), resource_base_url.as_str())
+    serve_webui_asset(
+        state.webui_dir.get().as_deref(),
+        webui_path.as_str(),
+        resource_base_url.as_str(),
+    )
 }
 
 fn serve_nextui_asset(asset_path: &str, resource_base_url: &str) -> Response {
@@ -118,7 +140,17 @@ fn rewrite_nextui_index_html(asset_data: &[u8], resource_base_url: &str) -> Vec<
         .into_bytes()
 }
 
-fn serve_webui_asset(webui_path: &str, resource_base_url: &str) -> Response {
+fn serve_webui_asset(
+    webui_dir: Option<&Path>,
+    webui_path: &str,
+    resource_base_url: &str,
+) -> Response {
+    if let Some(dir) = webui_dir
+        && let Some(external_path) = resolve_external_webui_asset_path(dir, webui_path)
+    {
+        return serve_external_webui_asset(external_path.as_path(), resource_base_url);
+    }
+
     let Some(asset_path) = resolve_embedded_asset_path(webui_path) else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -155,6 +187,81 @@ fn serve_webui_asset(webui_path: &str, resource_base_url: &str) -> Response {
     (response_headers, asset_data).into_response()
 }
 
+fn resolve_external_webui_asset_path(dir: &Path, webui_path: &str) -> Option<PathBuf> {
+    let normalized = webui_path.trim_matches('/');
+
+    if normalized.is_empty() {
+        let index = dir.join("index.html");
+        return index.is_file().then_some(index);
+    }
+
+    if normalized
+        .split('/')
+        .any(|segment| segment.is_empty() || segment == ".." || segment.contains('\\'))
+    {
+        return None;
+    }
+
+    let candidate = dir.join(normalized);
+    if is_index_html_candidate(normalized) {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        let index = dir.join("index.html");
+        return index.is_file().then_some(index);
+    }
+
+    if candidate.is_file() {
+        Some(candidate)
+    } else {
+        None
+    }
+}
+
+fn serve_external_webui_asset(external_path: &Path, resource_base_url: &str) -> Response {
+    let asset_bytes = match std::fs::read(external_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                [(header::CONTENT_TYPE, "application/json")],
+                axum::Json(MessageDto {
+                    message: format!(
+                        "webui asset read failed: {}: {error}",
+                        external_path.display()
+                    ),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let is_index_html =
+        external_path.file_name().and_then(|name| name.to_str()) == Some("index.html");
+    let body = if is_index_html {
+        Bytes::from(rewrite_index_html(&asset_bytes, resource_base_url))
+    } else {
+        Bytes::from(asset_bytes)
+    };
+
+    let cache_control_key = if is_index_html {
+        "index.html".to_string()
+    } else {
+        external_path.to_string_lossy().into_owned()
+    };
+
+    (
+        [
+            (header::CONTENT_TYPE, content_type_for(external_path)),
+            (
+                header::CACHE_CONTROL,
+                cache_control_for(cache_control_key.as_str()).to_string(),
+            ),
+        ],
+        body,
+    )
+        .into_response()
+}
 fn request_scoped_resource_base_url(headers: &HeaderMap) -> String {
     let prefix = request_context_path(headers);
     if prefix.is_empty() || !is_safe_resource_path_prefix(prefix.as_str()) {
@@ -378,7 +485,8 @@ mod tests {
     use super::super::webui_assets::WebUiAssets;
     use super::{
         INDEX_HTML_CACHE_MAX_ENTRIES, IndexHtmlCache, content_type_for, is_runtime_owned_prefix,
-        request_scoped_resource_base_url, resolve_embedded_asset_path, serve_webui_asset,
+        request_scoped_resource_base_url, resolve_embedded_asset_path,
+        resolve_external_webui_asset_path, serve_webui_asset,
     };
     #[cfg(webui_dist_present)]
     use super::{cached_rewritten_index_html, rewrite_index_html};
@@ -388,12 +496,12 @@ mod tests {
     #[cfg(webui_dist_present)]
     use axum::http::header;
     use axum::http::{HeaderMap, StatusCode};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     #[cfg(webui_dist_present)]
     #[tokio::test]
     async fn webui_entrypoint_serves_embedded_index_html() {
-        let response = serve_webui_asset("", "/");
+        let response = serve_webui_asset(None, "", "/");
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -412,7 +520,7 @@ mod tests {
     #[cfg(webui_dist_present)]
     #[tokio::test]
     async fn extensionless_spa_routes_fall_back_to_embedded_index_html() {
-        let response = serve_webui_asset("series/123", "/");
+        let response = serve_webui_asset(None, "series/123", "/");
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -432,7 +540,7 @@ mod tests {
     #[tokio::test]
     async fn root_level_embedded_assets_are_served_from_embed_storage() {
         for asset_path in ["manifest.json", "android-chrome-192x192.png"] {
-            let response = serve_webui_asset(asset_path, "/");
+            let response = serve_webui_asset(None, asset_path, "/");
 
             assert_eq!(
                 response.status(),
@@ -459,7 +567,7 @@ mod tests {
     #[tokio::test]
     async fn html_entry_assets_are_served_with_no_store_cache_control() {
         for asset_path in ["", "index.html", "manifest.json"] {
-            let response = serve_webui_asset(asset_path, "/");
+            let response = serve_webui_asset(None, asset_path, "/");
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(
                 response
@@ -474,7 +582,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_extensionful_assets_return_not_found() {
-        let response = serve_webui_asset("missing.js", "/");
+        let response = serve_webui_asset(None, "missing.js", "/");
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
@@ -555,5 +663,131 @@ mod tests {
     fn rewritten_embedded_index_html(resource_base_url: &str) -> Vec<u8> {
         let index_html = WebUiAssets::get("index.html").expect("embedded index.html should exist");
         rewrite_index_html(index_html.as_ref(), resource_base_url)
+    }
+    struct TempWebUiDir(PathBuf);
+
+    impl TempWebUiDir {
+        fn new(case: &str) -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("komga-webui-test-{case}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::create_dir_all(&path).expect("webui test dir should be created");
+            Self(path)
+        }
+
+        fn write(&self, relative: &str, content: &[u8]) {
+            let path = self.0.join(relative);
+            std::fs::create_dir_all(path.parent().expect("parent should exist"))
+                .expect("asset parent should be created");
+            std::fs::write(path, content).expect("asset should be written");
+        }
+    }
+
+    impl Drop for TempWebUiDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    async fn external_webui_dir_serves_index_at_root() {
+        let dir = TempWebUiDir::new("root");
+        dir.write("index.html", b"<html>kmweb</html>");
+
+        let response = serve_webui_asset(Some(dir.0.as_path()), "", "/");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/html",
+        );
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-store",
+        );
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("external index body should be readable");
+        assert_eq!(body.as_ref(), b"<html>kmweb</html>");
+    }
+
+    #[tokio::test]
+    async fn external_webui_spa_routes_fall_back_to_index_html() {
+        let dir = TempWebUiDir::new("spa");
+        dir.write("index.html", b"spa-shell");
+
+        let response = serve_webui_asset(Some(dir.0.as_path()), "series/123", "/");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_TYPE).unwrap(),
+            "text/html",
+        );
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("spa fallback body should be readable");
+        assert_eq!(body.as_ref(), b"spa-shell");
+    }
+
+    #[tokio::test]
+    async fn external_webui_serves_extensionful_assets_with_mime_type() {
+        let dir = TempWebUiDir::new("asset");
+        dir.write("index.html", b"spa-shell");
+        dir.write("assets/app.js", b"console.log(1)");
+
+        let response = serve_webui_asset(Some(dir.0.as_path()), "assets/app.js", "/");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            content_type_for(Path::new("assets/app.js")).as_str(),
+        );
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("external asset body should be readable");
+        assert_eq!(body.as_ref(), b"console.log(1)");
+    }
+
+    #[tokio::test]
+    async fn external_webui_missing_extensionful_asset_does_not_fall_back() {
+        let dir = TempWebUiDir::new("missing");
+        dir.write("index.html", b"spa-shell");
+
+        let response = serve_webui_asset(Some(dir.0.as_path()), "missing.js", "/");
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn external_webui_path_rejects_traversal_and_double_slashes() {
+        let dir = TempWebUiDir::new("traversal");
+        dir.write("index.html", b"spa-shell");
+        dir.write("app.js", b"x");
+
+        assert_eq!(
+            resolve_external_webui_asset_path(dir.0.as_path(), "../index.html"),
+            None,
+        );
+        assert_eq!(
+            resolve_external_webui_asset_path(dir.0.as_path(), "folder\\index.html"),
+            None,
+        );
+        assert_eq!(
+            resolve_external_webui_asset_path(dir.0.as_path(), "a//b"),
+            None,
+        );
+        assert_eq!(
+            resolve_external_webui_asset_path(dir.0.as_path(), "app.js"),
+            Some(dir.0.join("app.js")),
+        );
+        assert_eq!(
+            resolve_external_webui_asset_path(dir.0.as_path(), "series/123"),
+            Some(dir.0.join("index.html")),
+        );
     }
 }

@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use super::cli_args::{ADDR_ENV, DEFAULT_BIND_ADDRESS, SERVER_CONTEXT_PATH_ENV, SERVER_PORT_ENV};
 use super::error::ConfigError;
@@ -17,6 +18,7 @@ use super::writer_ownership::WriterOwnershipPolicy;
 
 pub const DEFAULT_SESSION_MAX_INACTIVE_SECONDS: u64 = 30 * 24 * 60 * 60;
 pub const DEFAULT_SORT_LOCALE: Option<String> = None;
+pub const DEFAULT_WEBUI_UPDATE_INTERVAL: Duration = Duration::from_secs(24 * 3600);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OAuth2ClientConfig {
@@ -60,6 +62,9 @@ pub struct RuntimeConfig {
     pub session_max_inactive_seconds: u64,
     pub task_pool_size: usize,
     pub sort_locale: Option<String>,
+    pub webui_dir: Option<PathBuf>,
+    pub webui_auto_update: bool,
+    pub webui_update_interval: Duration,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -157,6 +162,9 @@ impl RuntimeConfig {
             session_max_inactive_seconds: DEFAULT_SESSION_MAX_INACTIVE_SECONDS,
             task_pool_size: 1,
             sort_locale: DEFAULT_SORT_LOCALE,
+            webui_dir: None,
+            webui_auto_update: false,
+            webui_update_interval: DEFAULT_WEBUI_UPDATE_INTERVAL,
         }
     }
 

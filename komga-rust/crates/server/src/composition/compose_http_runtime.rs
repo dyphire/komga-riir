@@ -40,7 +40,7 @@ use komga_infrastructure_tasks::TaskEnqueueAdapter;
 use komga_interfaces::state::{
     AuthDatabaseState, DiscoveryAuthState, HttpAppState, HttpServices, IdentityState,
     OAuth2ClientConfig, OperationalBuildMetadata, OperationalState, ReadProgressState,
-    RuntimeProfile, RuntimeState, ShutdownTrigger, SseConnectionState,
+    RuntimeProfile, RuntimeState, ShutdownTrigger, SseConnectionState, WebUiDirState,
 };
 use sha2::Digest;
 use tokio::sync::watch;
@@ -445,6 +445,7 @@ fn compose_operational_state(
         oauth2_clients: oauth2_clients(config),
         oauth2_account_creation: config.oauth2_account_creation,
         oidc_email_verification: config.oidc_email_verification,
+        webui_dir: WebUiDirState::new(crate::webui_updater::initial_dir(config)),
         sse,
         shutdown_trigger: shutdown_trigger.map(ShutdownTrigger::new),
     }

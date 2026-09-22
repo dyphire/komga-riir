@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 axum.workspace = true
+anyhow.workspace = true
 axum-extra.workspace = true
 base64.workspace = true
 bcrypt.workspace = true
@@ -21,6 +22,7 @@ tantivy.workspace = true
 sqlx.workspace = true
 zip.workspace = true
 flate2.workspace = true
+tar.workspace = true
 lopdf.workspace = true
 quick-xml.workspace = true
 time.workspace = true
@@ -53,3 +55,4 @@ komga-build-support = { path = "../build-support" }
 
 [dev-dependencies]
 komga-interfaces = { path = "../interfaces", features = ["allow-missing-webui-dist"] }
+tempfile = "3.27.0"

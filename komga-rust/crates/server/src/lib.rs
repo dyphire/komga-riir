@@ -5,3 +5,4 @@ mod composition;
 mod config;
 pub mod logging;
 mod runtime;
+mod webui_updater;

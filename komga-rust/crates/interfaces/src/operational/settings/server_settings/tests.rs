@@ -25,7 +25,7 @@ use crate::identity_access::auth::{Admin, Authenticated};
 use crate::state::OperationalState;
 use crate::state::{
     OAuth2ClientConfig, OperationalBuildMetadata, RuntimeState, ServerSettingsState,
-    SseConnectionState,
+    SseConnectionState, WebUiDirState,
 };
 
 #[test]
@@ -183,8 +183,11 @@ async fn get_server_settings_does_not_apply_runtime_task_pool_size() {
         }),
         fixture.store,
     ));
-    let response =
-        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
+    let response = get_server_settings(
+        State(test_server_settings_state(&app)),
+        Authenticated(admin_user()),
+    )
+    .await;
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(apply_count.load(Ordering::SeqCst), 0);
@@ -202,8 +205,11 @@ async fn get_server_settings_preserves_null_string_sources() {
         Arc::new(FakeTaskQueue { apply: |_| Ok(()) }),
         fixture.store,
     ));
-    let response =
-        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
+    let response = get_server_settings(
+        State(test_server_settings_state(&app)),
+        Authenticated(admin_user()),
+    )
+    .await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let response_body = to_bytes(response.into_body(), usize::MAX)
@@ -250,8 +256,11 @@ async fn get_server_settings_returns_runtime_server_port_configuration_source() 
         Arc::new(FakeTaskQueue { apply: |_| Ok(()) }),
         fixture.store,
     ));
-    let response =
-        get_server_settings(State(test_server_settings_state(&app)), Authenticated(admin_user())).await;
+    let response = get_server_settings(
+        State(test_server_settings_state(&app)),
+        Authenticated(admin_user()),
+    )
+    .await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let response_body = to_bytes(response.into_body(), usize::MAX)
@@ -381,6 +390,7 @@ fn test_operational_state(fixture_root: PathBuf) -> OperationalState {
         oauth2_clients: Vec::<OAuth2ClientConfig>::new(),
         oauth2_account_creation: false,
         oidc_email_verification: true,
+        webui_dir: WebUiDirState::new(None),
         sse: SseConnectionState::accepting(),
         shutdown_trigger: None,
     }
