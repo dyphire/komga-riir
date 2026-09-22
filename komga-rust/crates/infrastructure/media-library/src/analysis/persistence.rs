@@ -10,6 +10,7 @@ pub(super) struct BookAnalysisInput {
     pub(super) analyze_dimensions: bool,
     pub(super) hash_pages: bool,
     pub(super) series_id: String,
+    pub(super) library_id: String,
     pub(super) previous_media_status: Option<MediaStatus>,
     pub(super) previous_page_count: i64,
     pub(super) metadata_sources: MetadataSourceRequest,
@@ -54,6 +55,7 @@ pub(super) async fn analyze_book_input(
         r#"SELECT
              b.URL AS URL,
              b.SERIES_ID AS SERIES_ID,
+             b.LIBRARY_ID AS LIBRARY_ID,
              l.ANALYZE_DIMENSIONS AS ANALYZE_DIMENSIONS,
              l.HASH_PAGES AS HASH_PAGES,
              l.IMPORT_COMICINFO_BOOK AS IMPORT_COMICINFO_BOOK,
@@ -90,6 +92,7 @@ pub(super) async fn analyze_book_input(
             analyze_dimensions: sqlx::Row::get::<bool, _>(&row, "ANALYZE_DIMENSIONS"),
             hash_pages: sqlx::Row::get::<bool, _>(&row, "HASH_PAGES"),
             series_id: sqlx::Row::get::<String, _>(&row, "SERIES_ID"),
+            library_id: sqlx::Row::get::<String, _>(&row, "LIBRARY_ID"),
             previous_media_status: MediaStatus::parse(
                 sqlx::Row::get::<String, _>(&row, "PREVIOUS_MEDIA_STATUS").as_str(),
             ),
