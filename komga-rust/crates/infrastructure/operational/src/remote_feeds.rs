@@ -21,7 +21,7 @@ impl RemoteFeedAccess {
     }
 
     pub fn default_releases_url() -> &'static str {
-        "https://api.github.com/repos/huihuimoe/komga-riir/releases?per_page=20"
+        "https://api.github.com/repos/dyphire/komga-riir/releases?per_page=20"
     }
 
     pub fn new(announcements_url: impl Into<String>, releases_url: impl Into<String>) -> Self {
