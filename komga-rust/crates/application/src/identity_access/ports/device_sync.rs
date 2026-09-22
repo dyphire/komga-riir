@@ -18,6 +18,15 @@ pub trait DeviceSyncPort: Send + Sync {
         book_id: &str,
     ) -> anyhow::Result<Option<KoboMetadataRecord>>;
 
+    /// Upsert the file size of a converted book projection (e.g. kepub), so
+    /// Kobo metadata can report the accurate download size for that profile.
+    async fn save_book_projection_file_size(
+        &self,
+        book_id: &str,
+        profile: &str,
+        file_size: u64,
+    ) -> anyhow::Result<()>;
+
     async fn load_koreader_book_target(
         &self,
         book_hash: &str,

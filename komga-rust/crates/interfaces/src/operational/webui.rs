@@ -491,9 +491,7 @@ mod tests {
     #[cfg(webui_dist_present)]
     use super::{cached_rewritten_index_html, rewrite_index_html};
     use axum::body::Bytes;
-    #[cfg(webui_dist_present)]
     use axum::body::to_bytes;
-    #[cfg(webui_dist_present)]
     use axum::http::header;
     use axum::http::{HeaderMap, StatusCode};
     use std::path::{Path, PathBuf};

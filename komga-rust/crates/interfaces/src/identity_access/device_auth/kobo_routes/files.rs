@@ -46,6 +46,26 @@ fn kobo_epub_file_name(file_name: &str) -> String {
     format!("{}.epub", kobo_epub_base(file_name))
 }
 
+/// Persist the converted kepub file size so Kobo metadata can report the
+/// accurate download size for the KEPUB profile. Failures are non-fatal for
+/// the download itself.
+async fn persist_kepub_projection(
+    device_sync: &dyn komga_application::identity_access::DeviceSyncPort,
+    book_id: &str,
+    file_size: u64,
+) {
+    if let Err(error) = device_sync
+        .save_book_projection_file_size(book_id, "kepub", file_size)
+        .await
+    {
+        tracing::warn!(
+            error = ?error,
+            book_id,
+            "failed to persist kepub projection file size"
+        );
+    }
+}
+
 pub(crate) async fn kobo_book_file_epub(
     State(app): State<IdentityAccessState>,
     Path((auth_token, book_id)): Path<(String, String)>,
@@ -104,6 +124,12 @@ pub(crate) async fn kobo_book_file_epub(
             Ok(converted_body) => {
                 file_name = kobo_kepub_file_name(media.file_name.as_str());
                 media_type = "application/epub+zip".to_string();
+                persist_kepub_projection(
+                    app.identity.device_sync(),
+                    &book_id,
+                    converted_body.len() as u64,
+                )
+                .await;
                 converted_body
             }
             Err(_) => {
@@ -125,6 +151,12 @@ pub(crate) async fn kobo_book_file_epub(
                 Ok(converted_body) => {
                     file_name = kobo_kepub_file_name(media.file_name.as_str());
                     media_type = "application/epub+zip".to_string();
+                    persist_kepub_projection(
+                        app.identity.device_sync(),
+                        &book_id,
+                        converted_body.len() as u64,
+                    )
+                    .await;
                     converted_body
                 }
                 Err(_) => {

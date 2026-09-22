@@ -15,11 +15,6 @@ node_modules
 ### Temporary files
 *.tmp
 *.bak
-.slim
-.sisyphus
-.opencode
-CLAUDE.md
-AGENTS.md
 
 ### SQLite databases
 *.sqlite
@@ -63,8 +58,5 @@ application-oauth2.yml
 output/
 secret/
 
-### Python
-__pycache__/
-*.py[cod]
-*$py.class
-.venv
+### Kilo
+/.kilo/

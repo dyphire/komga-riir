@@ -419,6 +419,15 @@ impl DeviceSyncPort for TestDeviceSync {
     async fn persisted_book_exists(&self, _book_id: &str) -> anyhow::Result<bool> {
         Ok(false)
     }
+
+    async fn save_book_projection_file_size(
+        &self,
+        _book_id: &str,
+        _profile: &str,
+        _file_size: u64,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Default)]

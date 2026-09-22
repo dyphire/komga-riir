@@ -94,6 +94,16 @@ pub(super) const REQUIRED_MAIN_SCHEMA: &[(&str, &[&str])] = &[
         ],
     ),
     (
+        "book_projection",
+        &[
+            "book_id",
+            "profile",
+            "file_size",
+            "created_date",
+            "last_modified_date",
+        ],
+    ),
+    (
         "book_metadata_aggregation_author",
         &["name", "role", "series_id"],
     ),

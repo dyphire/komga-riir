@@ -244,6 +244,7 @@ pub(super) fn build_kobo_book_metadata_payload(
         publication_fallback_date: metadata.created_date.as_deref(),
         language: &metadata.language,
         file_size: metadata.file_size,
+        kepub_file_size: metadata.kepub_file_size,
         contributor_names: &metadata.contributor_names,
         isbn: metadata.isbn.as_deref(),
         publisher_name: metadata.publisher_name.as_deref(),
@@ -473,6 +474,7 @@ struct KoboBookMetadataWireInput<'a> {
     publication_fallback_date: Option<&'a str>,
     language: &'a str,
     file_size: u64,
+    kepub_file_size: Option<u64>,
     contributor_names: &'a [String],
     isbn: Option<&'a str>,
     publisher_name: Option<&'a str>,
@@ -511,7 +513,13 @@ fn kobo_book_metadata_wire(input: KoboBookMetadataWireInput<'_>) -> KoboBookMeta
             drm_type: "None",
             format: input.download_format.to_string(),
             platform: "Generic",
-            size: input.file_size,
+            // A converted kepub projection is a different file with a different
+            // size than the source epub; prefer it when reporting a KEPUB download.
+            size: if input.download_format == "KEPUB" {
+                input.kepub_file_size.unwrap_or(input.file_size)
+            } else {
+                input.file_size
+            },
             url: input.download_url,
         }],
         entitlement_id: input.id.to_string(),
@@ -575,6 +583,7 @@ fn kobo_book_metadata_from_snapshot(
         publication_fallback_date: Some(book.created.as_str()),
         language: &book.language,
         file_size: book.file_size,
+        kepub_file_size: None,
         contributor_names: &book.contributor_names,
         isbn: book.isbn.as_deref(),
         publisher_name: book.publisher_name.as_deref(),
@@ -694,6 +703,7 @@ mod tests {
             created_date: Some("2026-01-01T00:00:00Z".to_string()),
             language: "FR-ca".to_string(),
             file_size: 1234,
+            kepub_file_size: None,
             file_name: "book.epub".to_string(),
             media_type: "application/epub+zip".to_string(),
             contributor_names: vec!["Jane Writer".to_string()],
@@ -751,6 +761,94 @@ mod tests {
         );
         assert_eq!(book.get("Slug"), Some(&Value::Null));
         assert_eq!(book.get("SubTitle"), Some(&Value::Null));
+    }
+
+    #[test]
+    fn kobo_metadata_uses_persisted_kepub_size_for_kepub_download() {
+        let metadata = KoboMetadataRecord {
+            title: "Book One".to_string(),
+            summary: String::new(),
+            release_date: Some("2026-02-03".to_string()),
+            created_date: Some("2026-01-01T00:00:00Z".to_string()),
+            language: "FR-ca".to_string(),
+            file_size: 1234,
+            kepub_file_size: Some(9876),
+            file_name: "book.epub".to_string(),
+            media_type: "application/epub+zip".to_string(),
+            contributor_names: vec!["Jane Writer".to_string()],
+            isbn: Some("9781234567890".to_string()),
+            publisher_name: Some("PubHouse".to_string()),
+            cover_image_id: Some("cover-1".to_string()),
+            series_id: Some("series-1".to_string()),
+            series_name: Some("Series One".to_string()),
+            series_number: Some("1".to_string()),
+            series_number_float: Some(1.0),
+            oneshot: false,
+            is_kepub: false,
+            is_pre_paginated: false,
+        };
+
+        let payload = build_kobo_book_metadata_payload(
+            "book-1",
+            &metadata,
+            "http://localhost:8080",
+            "token-1",
+        );
+        let book = serde_json::to_value(payload.first().expect("metadata item expected"))
+            .expect("metadata should serialize");
+
+        let download = book
+            .get("DownloadUrls")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("download url expected");
+        assert_eq!(
+            download.get("Format"),
+            Some(&Value::String("KEPUB".to_string()))
+        );
+        assert_eq!(download.get("Size"), Some(&json!(9876)));
+    }
+
+    #[test]
+    fn kobo_metadata_falls_back_to_epub_size_without_kepub_projection() {
+        let metadata = KoboMetadataRecord {
+            title: "Book One".to_string(),
+            summary: String::new(),
+            release_date: Some("2026-02-03".to_string()),
+            created_date: Some("2026-01-01T00:00:00Z".to_string()),
+            language: "FR-ca".to_string(),
+            file_size: 1234,
+            kepub_file_size: None,
+            file_name: "book.epub".to_string(),
+            media_type: "application/epub+zip".to_string(),
+            contributor_names: vec!["Jane Writer".to_string()],
+            isbn: Some("9781234567890".to_string()),
+            publisher_name: Some("PubHouse".to_string()),
+            cover_image_id: Some("cover-1".to_string()),
+            series_id: Some("series-1".to_string()),
+            series_name: Some("Series One".to_string()),
+            series_number: Some("1".to_string()),
+            series_number_float: Some(1.0),
+            oneshot: false,
+            is_kepub: false,
+            is_pre_paginated: false,
+        };
+
+        let payload = build_kobo_book_metadata_payload(
+            "book-1",
+            &metadata,
+            "http://localhost:8080",
+            "token-1",
+        );
+        let book = serde_json::to_value(payload.first().expect("metadata item expected"))
+            .expect("metadata should serialize");
+
+        let download = book
+            .get("DownloadUrls")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("download url expected");
+        assert_eq!(download.get("Size"), Some(&json!(1234)));
     }
 
     #[test]

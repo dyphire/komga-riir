@@ -4,44 +4,52 @@
       <v-col
         cols="6"
         sm="3"
+        lg="2"
       >
-        <ItemPoster
-          :poster-url="bookPosterUrl(book.id, cacheStore.getVersion(book.id))"
-          :progress-percent="progressPercent"
-          :max-width="posterMaxWidth"
-        />
-
-        <v-alert
-          v-if="isRead || pagesLeft"
-          :icon="isRead ? 'i-mdi:check' : undefined"
-          class="mt-1 text-center text-body-small"
-          :max-width="posterMaxWidth"
+        <div
+          class="ms-auto"
+          style="max-width: 220px"
         >
-          <template v-if="pagesLeft">{{
-            $formatMessage(
-              {
-                description: 'Book view: number of pages left',
-                defaultMessage: '{count} pages left',
-                id: 'Z5hsZ9',
-              },
-              { count: pagesLeft },
-            )
-          }}</template>
-          <template v-if="isRead">{{
-            $formatMessage(
-              {
-                description: 'Book view: date read',
-                defaultMessage: 'Read on {readDate}',
-                id: 'T3Ofay',
-              },
-              {
-                readDate: intl.formatDate(book.readProgress?.readDate, {
-                  dateStyle: 'medium',
-                }),
-              },
-            )
-          }}</template>
-        </v-alert>
+          <ItemPoster
+            :poster-url="bookPosterUrl(book.id, cacheStore.getVersion(book.id))"
+            :progress-percent="progressPercent"
+          />
+
+          <v-alert
+            v-if="isRead || pagesLeft"
+            :icon="isRead ? 'i-mdi:check' : undefined"
+            class="mt-1 text-center text-body-small"
+          >
+            <template v-if="pagesLeft"
+              >{{
+                $formatMessage(
+                  {
+                    description: 'Book view: number of pages left',
+                    defaultMessage: '{count} pages left',
+                    id: 'Z5hsZ9',
+                  },
+                  { count: pagesLeft },
+                )
+              }}
+            </template>
+            <template v-if="isRead"
+              >{{
+                $formatMessage(
+                  {
+                    description: 'Book view: date read',
+                    defaultMessage: 'Read on {readDate}',
+                    id: 'T3Ofay',
+                  },
+                  {
+                    readDate: intl.formatDate(book.readProgress?.readDate, {
+                      dateStyle: 'medium',
+                    }),
+                  },
+                )
+              }}
+            </template>
+          </v-alert>
+        </div>
       </v-col>
 
       <v-col
@@ -281,17 +289,17 @@ import { MediaStatus } from '@/types/MediaStatus'
 import { useImageCacheStore } from '@/stores/image-cache'
 import { languageDisplayNames } from '@/utils/i18n/locale-helper'
 import { type ReadingDirection, readingDirectionMessages } from '@/types/ReadingDirection'
+import { isMessageDescriptor } from '@/stores/messages'
 
 const intl = useIntl()
 const display = useDisplay()
 const cacheStore = useImageCacheStore()
 const { convertErrorCodes } = useErrorCodeFormatter()
 const id = useId()
-const posterMaxWidth = 220
 
 type OneShotAttributes = Pick<
   SeriesMetadataDto,
-  'publisher' | 'ageRating' | 'genres' | 'language' | 'readingDirection'
+  'publisher' | 'ageRating' | 'genres' | 'language' | 'readingDirection' | 'sharingLabels'
 >
 
 const props = defineProps<{
@@ -346,6 +354,7 @@ const tableRows = computed(() => {
       }),
       data: props.book.metadata.tags.map((it) => ({ text: it })),
     })
+
   if (props.book.metadata.links.length > 0)
     rows.push({
       header: intl.formatMessage({
@@ -355,6 +364,17 @@ const tableRows = computed(() => {
       }),
       data: props.book.metadata.links.map((it) => ({ text: it.label, href: it.url })),
     })
+
+  if (props.oneShotAttributes && props.oneShotAttributes.sharingLabels.length > 0)
+    rows.push({
+      header: intl.formatMessage({
+        description: 'Book view table: sharing labels  header',
+        defaultMessage: 'Sharing labels',
+        id: '1z+Z+q',
+      }),
+      data: props.oneShotAttributes.sharingLabels.map((it) => ({ text: it })),
+    })
+
   if (props.book.metadata.isbn)
     rows.push({
       header: intl.formatMessage({
@@ -364,14 +384,14 @@ const tableRows = computed(() => {
       }),
       data: props.book.metadata.isbn,
     })
-  if (props.book.media.comment)
+  if (format.value)
     rows.push({
       header: intl.formatMessage({
         description: 'Book view table: file type header',
         defaultMessage: 'File type',
         id: 'QALnuE',
       }),
-      data: format.value,
+      data: isMessageDescriptor(format.value) ? intl.formatMessage(format.value) : format.value,
     })
   rows.push({
     header: intl.formatMessage({

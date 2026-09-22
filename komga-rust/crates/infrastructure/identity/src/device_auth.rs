@@ -13,6 +13,7 @@ pub(crate) struct PersistedKoboMetadataRecord {
     pub(crate) created_date: Option<String>,
     pub(crate) language: String,
     pub(crate) file_size: u64,
+    pub(crate) kepub_file_size: Option<u64>,
     pub(crate) file_name: String,
     pub(crate) media_type: String,
     pub(crate) contributor_names: Vec<String>,
@@ -39,6 +40,7 @@ pub(crate) async fn load_kobo_metadata_record(
        COALESCE(bm.CREATED_DATE, b.CREATED_DATE, '') AS CREATED_DATE,
        COALESCE(sm.LANGUAGE, 'en') AS LANGUAGE,
        b.FILE_SIZE AS FILE_SIZE,
+       bp.FILE_SIZE AS KEPUB_FILE_SIZE,
        b.NAME AS FILE_NAME,
        COALESCE(m.MEDIA_TYPE, 'application/octet-stream') AS MEDIA_TYPE,
        NULLIF(TRIM(bm.ISBN), '') AS ISBN,
@@ -56,6 +58,7 @@ pub(crate) async fn load_kobo_metadata_record(
   LEFT JOIN SERIES_METADATA sm ON sm.SERIES_ID = b.SERIES_ID
   LEFT JOIN MEDIA m ON m.BOOK_ID = b.ID
   LEFT JOIN THUMBNAIL_BOOK tb ON tb.BOOK_ID = b.ID AND tb.SELECTED = TRUE
+  LEFT JOIN BOOK_PROJECTION bp ON bp.BOOK_ID = b.ID AND bp.PROFILE = 'kepub'
  WHERE b.ID = ?
    AND b.DELETED_DATE IS NULL
    AND bm.BOOK_ID IS NOT NULL
@@ -97,6 +100,7 @@ pub(crate) async fn load_kobo_metadata_record(
         },
         language: row.get::<String, _>("LANGUAGE"),
         file_size: row.get::<i64, _>("FILE_SIZE").max(0) as u64,
+        kepub_file_size: row.get::<Option<i64>, _>("KEPUB_FILE_SIZE").map(|value| value.max(0) as u64),
         file_name: row.get::<String, _>("FILE_NAME"),
         media_type: row.get::<String, _>("MEDIA_TYPE"),
         contributor_names,
@@ -168,6 +172,27 @@ pub(crate) async fn load_thumbnail_by_id(
         media_type,
         bytes,
     }))
+}
+
+pub(crate) async fn save_book_projection_file_size(
+    pool: &SqlitePool,
+    book_id: &str,
+    profile: &str,
+    file_size: u64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"INSERT INTO BOOK_PROJECTION (BOOK_ID, PROFILE, FILE_SIZE, CREATED_DATE, LAST_MODIFIED_DATE)
+ VALUES (?, ?, ?, datetime('now'), datetime('now'))
+ ON CONFLICT (BOOK_ID, PROFILE) DO UPDATE SET
+   FILE_SIZE = excluded.FILE_SIZE,
+   LAST_MODIFIED_DATE = excluded.LAST_MODIFIED_DATE"#,
+    )
+    .bind(book_id)
+    .bind(profile)
+    .bind(file_size as i64)
+    .execute(pool)
+    .await
+    .map(|_| ())
 }
 
 pub(crate) async fn persisted_book_exists(

@@ -31,6 +31,8 @@ pub struct KoboMetadataRecord {
     pub created_date: Option<String>,
     pub language: String,
     pub file_size: u64,
+    /// File size of the persisted kepub projection, when it has been converted.
+    pub kepub_file_size: Option<u64>,
     pub file_name: String,
     pub media_type: String,
     pub contributor_names: Vec<String>,

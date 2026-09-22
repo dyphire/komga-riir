@@ -332,6 +332,22 @@ impl DeviceSyncPort for IdentityAccess {
         Ok(Some(self.kobo_metadata_record(record)?))
     }
 
+    async fn save_book_projection_file_size(
+        &self,
+        book_id: &str,
+        profile: &str,
+        file_size: u64,
+    ) -> anyhow::Result<()> {
+        device_auth::save_book_projection_file_size(
+            self.db.write_pool(),
+            book_id,
+            profile,
+            file_size,
+        )
+        .await
+        .map_err(anyhow::Error::from)
+    }
+
     async fn load_koreader_book_target(
         &self,
         book_hash: &str,
@@ -375,6 +391,7 @@ impl IdentityAccess {
             created_date: record.created_date,
             language: record.language,
             file_size: record.file_size,
+            kepub_file_size: record.kepub_file_size,
             file_name: record.file_name,
             media_type: record.media_type,
             contributor_names: record.contributor_names,

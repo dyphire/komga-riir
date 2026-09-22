@@ -152,6 +152,16 @@ export const commonMessages = {
     defaultMessage: 'Read list created',
     id: 'estf95',
   }),
+  seriesFormEditSharing: defineMessage({
+    description: 'Form edit series: Sharing',
+    defaultMessage: 'Sharing',
+    id: 'oB2hG3',
+  }),
+  seriesFormGeneralTitleSort: defineMessage({
+    description: 'Form edit series: General - series sort title',
+    defaultMessage: 'Sort title',
+    id: 'ayrmyn',
+  }),
   seriesFormGeneralPublisher: defineMessage({
     description: 'Form edit series: General - series publisher',
     defaultMessage: 'Publisher',
