@@ -5,6 +5,8 @@
 
 # ![app icon](./.github/readme-images/app-icon.png) Komga RIIR
 
+**This project is no longer maintained. Successor:** https://github.com/kmworks/kmrs
+
 Komga RIIR is a Rust-first rewrite of Komga for managing comics, mangas, BDs, magazines and eBooks.
 
 > [!WARNING]
